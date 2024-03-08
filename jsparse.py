@@ -5,7 +5,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # The world's worst JS parser. The goal is to parse JSON-y JS produced
-# by JS_ValueToSource.
+# by JS_ValueToSource. Some of the Ply tricks in here are taken from
+# Firefox's IPDL parser.
 
 from ply import lex, yacc
 
@@ -38,7 +39,7 @@ def t_STRING(t):
     t.value = t.value[1:-1]
     return t
 
-literals = "{},:"
+literals = "{}[],:"
 
 t_ignore = " \t"
 
@@ -67,10 +68,26 @@ def p_JSMapInner(p):
         m[p[1]] = p[3]
         p[0] = m
 
+def p_JSArray(p):
+    """JSArray : '[' JSArrayInner ']'"""
+    p[0] = p[2]
+
+def p_JSArrayInner(p):
+    """JSArrayInner :
+    | JSValue
+    | JSValue ',' JSArrayInner"""
+    if len(p) == 1:
+        p[0] = []
+    elif len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = [p[1]] + p[3]
+
 def p_JSValue(p):
     """JSValue : STRING
     | INTEGER
     | JSMap
+    | JSArray
     | Bool"""
     p[0] = p[1]
 
@@ -90,8 +107,15 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
+    simpleParseAndLog('{ position : [], foo : [1,2,] , bar: [2,3] }')
+    simpleParseAndLog('{ position : [12, 13, {blahblah:1234}] }')
+    simpleParseAndLog('{ position : [{id:1234567890, pos:0}, 12, false] }')
+
+    simpleParseAndLog('{ position : [{id:1234567890, pos:0}, 12, false] }')
+
     simpleParseAndLog('{ position : 4 }')
     simpleParseAndLog('{ position : true }')
     s = '{type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}'
     simpleParseAndLog(s)
-    #s = '{type:"DISCOVERY_STREAM_LOADED_CONTENT", data:{source:"CARDGRID", tiles:[{id:1234567890, pos:0}]}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main"}}'
+    s = '{type:"DISCOVERY_STREAM_LOADED_CONTENT", data:{source:"CARDGRID", tiles:[{id:1234567890, pos:0}]}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main"}}'
+    simpleParseAndLog(s)
