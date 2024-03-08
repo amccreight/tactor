@@ -9,7 +9,8 @@
 import re
 import sys
 import json
-from jsparse import parseJS
+from jsparse import parseJS, ParseError
+
 
 messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 
@@ -24,12 +25,12 @@ def lookAtActors():
         messageName = mp.group(2)
         contentsRaw = mp.group(3)
         contents = "???"
-        if contentsRaw == "(void 0)":
-            contents = "VOID!!!"
-        elif contentsRaw == "null":
-            contents = "NULL!!!"
-        elif contentsRaw[0] == "(" and contentsRaw[-1] == ")":
-            contents = parseJS(contentsRaw[1:-1])
+        try:
+            contents = parseJS(contentsRaw)
+        except ParseError as p:
+            print(p, file=sys.stderr)
+            print(f'  {contentsRaw}', file=sys.stderr)
+            break
 
         print(f'Actor: {actorName}; Message: {messageName}; Contents: {contents}')
 
