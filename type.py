@@ -60,18 +60,18 @@ class MapType(JSType):
         return "{" + ", ".join(l) + "}"
 
 class ArrayType(JSType):
-    def __init__(self):
-        # TODO: Figure out what to store here.
+    def __init__(self, tt):
+        # TODO: for now, this is a list of possible types.
+        self.types = tt
         return
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
             return False
-        # TODO: Implement actual checking.
-        return False
+        return self.types == o.types
 
     def __str__(self):
-        return "ARRAY"
+        return f"Array({', '.join(map(lambda t: str(t), self.types))}"
 
 # TODO: Probably need an "any" type and maybe an "or" type.
 
@@ -92,7 +92,12 @@ def jsValToType(v):
             tts[p] = jsValToType(pv)
         return MapType(tts)
     elif isinstance(v, list):
-        # TODO Deal with joining the types of the elements
-        return ArrayType()
+        tts = []
+        for val in v:
+            t = jsValToType(val)
+            if not t in tts:
+               tts.append(t)
+        sorted(tts)
+        return ArrayType(tts)
     else:
         raise Exception(f"Untypeable value: {v}")
