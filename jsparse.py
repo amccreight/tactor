@@ -84,12 +84,14 @@ def p_error(p):
 
 yacc.yacc(write_tables=False)
 
-s = '{type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}'
-#s = '{ position : 4 }'
-#s = '{ position : true }'
-for k, v in yacc.parse(s, debug=parserDebug).items():
-    print(f'{k} --> {v}')
+def simpleParseAndLog(s):
+    for k, v in yacc.parse(s, debug=parserDebug).items():
+        print(f'{k} --> {v}')
+    print()
 
-# {type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}
-
-# ({type:"DISCOVERY_STREAM_LOADED_CONTENT", data:{source:"CARDGRID", tiles:[{id:3370035274971981, pos:0}]}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main"}})
+if __name__ == "__main__":
+    simpleParseAndLog('{ position : 4 }')
+    simpleParseAndLog('{ position : true }')
+    s = '{type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}'
+    simpleParseAndLog(s)
+    #s = '{type:"DISCOVERY_STREAM_LOADED_CONTENT", data:{source:"CARDGRID", tiles:[{id:1234567890, pos:0}]}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main"}}'
