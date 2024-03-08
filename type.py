@@ -39,12 +39,16 @@ class PrimitiveType(JSType):
             JSPrimitiveType.UNDEFINED: "undefined",
         }[self.prim]
 
+
 class MapType(JSType):
-    def __init__(self, m):
+    def __init__(self, m, optional=set([])):
         self.map = m
+        self.optional = optional
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
+            return False
+        if self.optional != o.optional:
             return False
         if self.map.keys() != o.map.keys():
             return False
@@ -56,8 +60,10 @@ class MapType(JSType):
     def __str__(self):
         l = []
         for p, pt in self.map.items():
-            l.append(f"{p}: {pt}")
+            opt = "?" if p in self.optional else ""
+            l.append(f"{p}{opt}: {pt}")
         return "{" + ", ".join(l) + "}"
+
 
 class ArrayType(JSType):
     def __init__(self, tt):
