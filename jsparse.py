@@ -53,8 +53,8 @@ def p_JSMap(p):
     p[0] = p[2]
 
 def p_JSMapInner(p):
-    """JSMapInner : JSMapInner ',' ID ':' JSMapValue
-    | ID ':' JSMapValue """
+    """JSMapInner : JSMapInner ',' ID ':' JSValue
+    | ID ':' JSValue """
     if len(p) == 6:
         m = p[1]
         prop = p[3]
@@ -67,8 +67,8 @@ def p_JSMapInner(p):
         m[p[1]] = p[3]
         p[0] = m
 
-def p_JSMapValue(p):
-    """JSMapValue : STRING
+def p_JSValue(p):
+    """JSValue : STRING
     | INTEGER
     | JSMap
     | Bool"""
