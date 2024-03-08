@@ -29,7 +29,7 @@ def t_ID(t):
     return t
 
 def t_INTEGER(t):
-    r"[1-9][0-9]*"
+    r"[0-9][0-9]*"
     t.value = int(t.value)
     return t
 
