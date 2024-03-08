@@ -101,8 +101,11 @@ def p_error(p):
 
 yacc.yacc(write_tables=False)
 
+def parseJS(s):
+    return yacc.parse(s, debug=parserDebug)
+
 def simpleParseAndLog(s):
-    for k, v in yacc.parse(s, debug=parserDebug).items():
+    for k, v in parseJS(s).items():
         print(f'{k} --> {v}')
     print()
 

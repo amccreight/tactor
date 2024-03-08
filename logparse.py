@@ -9,6 +9,7 @@
 import re
 import sys
 import json
+from jsparse import parseJS
 
 messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 
@@ -28,8 +29,7 @@ def lookAtActors():
         elif contentsRaw == "null":
             contents = "NULL!!!"
         elif contentsRaw[0] == "(" and contentsRaw[-1] == ")":
-            # XXX This isn't JSON because the property names aren't strings.
-            contents = contentsRaw[1:-1]
+            contents = parseJS(contentsRaw[1:-1])
 
         print(f'Actor: {actorName}; Message: {messageName}; Contents: {contents}')
 
