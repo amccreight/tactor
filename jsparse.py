@@ -9,6 +9,7 @@
 # Firefox's IPDL parser.
 
 from ply import lex, yacc
+from jsast import JSNull, JSUndefined
 
 
 class ParseError(Exception):
@@ -22,8 +23,10 @@ class ParseError(Exception):
 
 reserved = set(
     (
-        "true",
         "false",
+        "true",
+        "null",
+        "void",
     )
 )
 
@@ -65,12 +68,20 @@ def p_JSValue(p):
     | INTEGER
     | JSMap
     | JSArray
-    | Bool"""
+    | Bool
+    | NULL
+    | VOID INTEGER"""
     if len(p) == 2:
-        p[0] = p[1]
-    else:
-        assert len(p) == 4
+        if p[1] == "null":
+            p[0] = JSNull()
+        else:
+            p[0] = p[1]
+    elif len(p) == 4:
         p[0] = p[2]
+    elif len(p) == 3:
+        p[0] = JSUndefined()
+    else:
+        assert False
 
 def p_JSMap(p):
     """JSMap : '{' JSMapInner '}'"""
@@ -130,7 +141,8 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
-    simpleParseAndLog('4')
+    simpleParseAndLog('null')
+    simpleParseAndLog('(void 0)')
     simpleParseAndLog('({ position : [], foo : [1,2,] , bar: [2,3] })')
     simpleParseAndLog('{ position : [12, 13, {blahblah:1234}] }')
     simpleParseAndLog('{ position : [{id:1234567890, pos:0}, 12, false] }')
