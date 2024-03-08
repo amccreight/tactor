@@ -17,6 +17,8 @@ messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 def lookAtActors():
     sys.stdin.reconfigure(encoding='latin1')
 
+    actors = {}
+
     for l in sys.stdin:
         mp = messagePatt.match(l)
         if not mp:
@@ -32,6 +34,10 @@ def lookAtActors():
             print(f'  {contentsRaw}', file=sys.stderr)
             break
 
-        print(f'Actor: {actorName}; Message: {messageName}; Contents: {contents}')
+        currMessages = actors.setdefault(actorName, {})
+        currContents = currMessages.setdefault(messageName, [])
+        currContents.append(contents)
+
+    print(actors)
 
 lookAtActors()
