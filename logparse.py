@@ -10,7 +10,7 @@ import re
 import sys
 import json
 from jsparse import parseJS, ParseError
-
+from type import jsValToType
 
 messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 
@@ -34,10 +34,20 @@ def lookAtActors():
             print(f'  {contentsRaw}', file=sys.stderr)
             break
 
-        currMessages = actors.setdefault(actorName, {})
-        currContents = currMessages.setdefault(messageName, [])
-        currContents.append(contents)
+        # TODO Catch the exception.
+        t = jsValToType(contents)
 
-    print(actors)
+        currMessages = actors.setdefault(actorName, {})
+        if messageName in currMessages:
+            currType = currMessages[messageName]
+            if t != currType:
+                print(f"Type changed from {currType} to {t}")
+        else:
+            currMessages[messageName] = t
+
+    for a, mm in actors.items():
+        print(a)
+        for m, t in mm.items():
+            print(f"  {m}: {t}")
 
 lookAtActors()
