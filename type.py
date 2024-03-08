@@ -46,23 +46,29 @@ class MapType(JSType):
     def __eq__(self, o):
         if self.__class__ != o.__class__:
             return False
-        # TODO: Implement actual checking.
+        if self.map.keys() != o.map.keys():
+            return False
+        for p, pt in self.map.items():
+            if pt != o.map[p]:
+                return False
         return True
 
     def __str__(self):
-        return "MAP"
+        l = []
+        for p, pt in self.map.items():
+            l.append(f"{p}: {pt}")
+        return "{" + ", ".join(l) + "}"
 
 class ArrayType(JSType):
     def __init__(self):
-        # Not sure what to do with this. Probably a single type, but is that
-        # enough?
+        # TODO: Figure out what to store here.
         return
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
             return False
         # TODO: Implement actual checking.
-        return True
+        return False
 
     def __str__(self):
         return "ARRAY"
@@ -81,8 +87,10 @@ def jsValToType(v):
     elif isinstance(v, JSUndefined):
         return PrimitiveType(JSPrimitiveType.UNDEFINED)
     elif isinstance(v, dict):
-        # TODO Deal with all of the fields.
-        return MapType({})
+        tts = {}
+        for p, pv in v.items():
+            tts[p] = jsValToType(pv)
+        return MapType(tts)
     elif isinstance(v, list):
         # TODO Deal with joining the types of the elements
         return ArrayType()
