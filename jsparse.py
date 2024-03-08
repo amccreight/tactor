@@ -9,16 +9,23 @@
 
 from ply import lex, yacc
 
+reserved = set(
+    (
+        "true",
+        "false",
+    )
+)
+
 tokens = [
-    "PROPERTY",
+    "ID",
     "INTEGER",
     "STRING",
-    "TRUE",
-    "FALSE"
-]
+] + [r.upper() for r in reserved]
 
-def t_PROPERTY(t):
+def t_ID(t):
     r"[a-zA-Z][a-zA-Z0-9_]*"
+    if t.value in reserved:
+        t.type = t.value.upper()
     return t
 
 def t_INTEGER(t):
@@ -29,16 +36,6 @@ def t_INTEGER(t):
 def t_STRING(t):
     r'"[^"]*"'
     t.value = t.value[1:-1]
-    return t
-
-def t_TRUE(t):
-    r"true"
-    t.value = True
-    return t
-
-def t_FALSE(t):
-    r"false"
-    t.value = False
     return t
 
 literals = "{},:"
@@ -60,8 +57,8 @@ def p_JSMap(p):
     p[0] = JSMap(p[2])
 
 def p_JSMapInner(p):
-    """JSMapInner : JSMapInner ',' PROPERTY ':' JSMapValue
-    | PROPERTY ':' JSMapValue """
+    """JSMapInner : JSMapInner ',' ID ':' JSMapValue
+    | ID ':' JSMapValue """
     if len(p) == 6:
         m = p[1]
         prop = p[3]
@@ -78,17 +75,22 @@ def p_JSMapValue(p):
     """JSMapValue : STRING
     | INTEGER
     | JSMap
-    | TRUE
-    | FALSE"""
+    | Bool"""
     p[0] = p[1]
+
+def p_Bool(p):
+    """Bool : TRUE
+    | FALSE"""
+    p[0] = p[1] == "true"
 
 def p_error(p):
     print(f'Syntax error at "{p.value}"')
 
 yacc.yacc(write_tables=False)
 
-#s = '{type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}'
-s = '{ position : 4 }'
+s = '{type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}'
+#s = '{ position : 4 }'
+#s = '{ position : true }'
 for k, v in yacc.parse(s, debug=parserDebug).map.items():
     print(f'{k} --> {v}')
 
