@@ -47,14 +47,17 @@ def lookAtActors():
         if not found:
             currTypes.append(t)
 
-
     for a, mm in actors.items():
         print(a)
         for m, tt in mm.items():
-            print(f"  {m}")
-            tts = [str(t) for t in tt]
-            sorted(tts)
-            for t in tts:
-                print(f"    {t}")
+            if len(tt) == 1:
+                print(f"  {m} {tt[0]}")
+            else:
+                print(f"  {m}")
+                tts = [str(t) for t in tt]
+                sorted(tts)
+                for t in tts:
+                    print(f"    {t}")
+        print()
 
 lookAtActors()
