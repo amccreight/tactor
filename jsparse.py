@@ -48,13 +48,9 @@ def t_error(t):
 parserDebug = False
 lex.lex(debug=parserDebug)
 
-class JSMap:
-    def __init__(self, m):
-        self.map = m
-    
 def p_JSMap(p):
     """JSMap : '{' JSMapInner '}'"""
-    p[0] = JSMap(p[2])
+    p[0] = p[2]
 
 def p_JSMapInner(p):
     """JSMapInner : JSMapInner ',' ID ':' JSMapValue
@@ -91,7 +87,7 @@ yacc.yacc(write_tables=False)
 s = '{type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}'
 #s = '{ position : 4 }'
 #s = '{ position : true }'
-for k, v in yacc.parse(s, debug=parserDebug).map.items():
+for k, v in yacc.parse(s, debug=parserDebug).items():
     print(f'{k} --> {v}')
 
 # {type:"TOP_SITES_ORGANIC_IMPRESSION_STATS", data:{type:"impression", position:4, source:"newtab"}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main", skipLocal:true}}
