@@ -38,16 +38,23 @@ def lookAtActors():
         t = jsValToType(contents)
 
         currMessages = actors.setdefault(actorName, {})
-        if messageName in currMessages:
-            currType = currMessages[messageName]
-            if t != currType:
-                print(f"Type changed from {currType} to {t}")
-        else:
-            currMessages[messageName] = t
+        currTypes = currMessages.setdefault(messageName, [])
+        found = False
+        for currType in currTypes:
+            if currType == t:
+                found = True
+                break
+        if not found:
+            currTypes.append(t)
+
 
     for a, mm in actors.items():
         print(a)
-        for m, t in mm.items():
-            print(f"  {m}: {t}")
+        for m, tt in mm.items():
+            print(f"  {m}")
+            tts = [str(t) for t in tt]
+            sorted(tts)
+            for t in tts:
+                print(f"    {t}")
 
 lookAtActors()
