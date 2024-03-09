@@ -39,12 +39,16 @@ def lookAtActors():
 
         currMessages = actors.setdefault(actorName, {})
         currTypes = currMessages.setdefault(messageName, [])
-        found = False
-        for currType in currTypes:
-            if currType == t:
-                found = True
+        foundAt = -1
+        for i, currType in enumerate(currTypes):
+            currType2 = currType.union(t)
+            if currType2:
+                foundAt = i
+                t = currType2
                 break
-        if not found:
+        if foundAt != -1:
+            currTypes[foundAt] = t
+        else:
             currTypes.append(t)
 
     for a, mm in actors.items():
