@@ -32,7 +32,7 @@ reserved = set(
 
 tokens = [
     "ID",
-    "INTEGER",
+    "NUMBER",
     "STRING",
 ] + [r.upper() for r in reserved]
 
@@ -42,9 +42,16 @@ def t_ID(t):
         t.type = t.value.upper()
     return t
 
-def t_INTEGER(t):
-    r"[0-9][0-9]*"
-    t.value = int(t.value)
+# This doesn't deal with many of the ways you can write a number in JS,
+# but hopefully it covers the important cases of JS_ValueToSource's output.
+# This probably loses precision in various situations, but we don't actually
+# care what the value is.
+def t_NUMBER(t):
+    r"-?\d+(?:[.]\d+)?"
+    if "." in t.value:
+        t.value = float(t.value)
+    else:
+        t.value = int(t.value)
     return t
 
 def t_STRING(t):
@@ -65,12 +72,12 @@ lex.lex(debug=parserDebug)
 def p_JSValue(p):
     """JSValue : '(' JSValue ')'
     | STRING
-    | INTEGER
+    | NUMBER
     | JSMap
     | JSArray
     | Bool
     | NULL
-    | VOID INTEGER"""
+    | VOID NUMBER"""
     if len(p) == 2:
         if p[1] == "null":
             p[0] = JSNull()
@@ -141,6 +148,8 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
+    simpleParseAndLog('-0.8426605824886742')
+    simpleParseAndLog('-100')
     simpleParseAndLog('null')
     simpleParseAndLog('(void 0)')
     simpleParseAndLog('({ position : [], foo : [1,2,] , bar: [2,3] })')

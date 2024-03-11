@@ -17,6 +17,7 @@ class JSType:
 JSPrimitiveType = Enum("JSPrimitiveType", [
     "BOOL",
     "INTEGER",
+    "FLOAT",
     "NULL",
     "STRING",
     "UNDEFINED",
@@ -35,6 +36,7 @@ class PrimitiveType(JSType):
         return {
             JSPrimitiveType.BOOL: "bool",
             JSPrimitiveType.INTEGER: "int",
+            JSPrimitiveType.FLOAT: "float",
             JSPrimitiveType.NULL: "null",
             JSPrimitiveType.STRING: "string",
             JSPrimitiveType.UNDEFINED: "undefined",
@@ -160,6 +162,8 @@ def jsValToType(v):
         return PrimitiveType(JSPrimitiveType.BOOL)
     elif isinstance(v, int):
         return PrimitiveType(JSPrimitiveType.INTEGER)
+    elif isinstance(v, float):
+        return PrimitiveType(JSPrimitiveType.FLOAT)
     elif isinstance(v, JSNull):
         return PrimitiveType(JSPrimitiveType.NULL)
     elif isinstance(v, str):
