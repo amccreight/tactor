@@ -55,7 +55,7 @@ def t_NUMBER(t):
     return t
 
 def t_STRING(t):
-    r'"[^"]*"'
+    r'"(?:[^"\\]|\\.)*"'
     t.value = t.value[1:-1]
     return t
 
@@ -152,6 +152,10 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
+    simpleParseAndLog('"\\""')
+    simpleParseAndLog('"str\\"ing"')
+    simpleParseAndLog('"str\\"in\\"g"')
+    simpleParseAndLog('{x:"string", y:"bar"}')
     simpleParseAndLog('-0.8426605824886742\n')
     simpleParseAndLog('-100')
     simpleParseAndLog('null')
