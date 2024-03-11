@@ -91,8 +91,12 @@ def p_JSValue(p):
         assert False
 
 def p_JSMap(p):
-    """JSMap : '{' JSMapInner '}'"""
-    p[0] = p[2]
+    """JSMap : '{' JSMapInner '}'
+    | '{' '}'"""
+    if len(p) == 4:
+        p[0] = p[2]
+    else:
+        p[0] = {}
 
 def p_JSMapInner(p):
     """JSMapInner : JSMapInner ',' ID ':' JSValue
@@ -152,6 +156,7 @@ if __name__ == "__main__":
     simpleParseAndLog('-100')
     simpleParseAndLog('null')
     simpleParseAndLog('(void 0)')
+    simpleParseAndLog('{}')
     simpleParseAndLog('({ position : [], foo : [1,2,] , bar: [2,3] })')
     simpleParseAndLog('{ position : [12, 13, {blahblah:1234}] }')
     simpleParseAndLog('{ position : [{id:1234567890, pos:0}, 12, false] }')
