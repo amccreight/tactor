@@ -20,7 +20,7 @@ def lookAtActors(strictMatching):
     actors = {}
 
     for l in sys.stdin:
-        mp = messagePatt.match(l)
+        mp = messagePatt.search(l)
         if not mp:
             continue
         actorName = mp.group(1)
