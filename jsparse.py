@@ -61,7 +61,7 @@ def t_STRING(t):
 
 literals = "(){}[],:"
 
-t_ignore = " \t"
+t_ignore = " \t\n\r"
 
 def t_error(t):
     raise ParseError(t.lexpos, f'Bad character {t.value[0]}')
@@ -148,7 +148,7 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
-    simpleParseAndLog('-0.8426605824886742')
+    simpleParseAndLog('-0.8426605824886742\n')
     simpleParseAndLog('-100')
     simpleParseAndLog('null')
     simpleParseAndLog('(void 0)')
