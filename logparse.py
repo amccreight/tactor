@@ -14,7 +14,7 @@ from type import jsValToType
 
 messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 
-def lookAtActors():
+def lookAtActors(strictMatching):
     sys.stdin.reconfigure(encoding='latin1')
 
     actors = {}
@@ -39,17 +39,26 @@ def lookAtActors():
 
         currMessages = actors.setdefault(actorName, {})
         currTypes = currMessages.setdefault(messageName, [])
-        foundAt = -1
-        for i, currType in enumerate(currTypes):
-            currType2 = currType.union(t)
-            if currType2:
-                foundAt = i
-                t = currType2
-                break
-        if foundAt != -1:
-            currTypes[foundAt] = t
+        if strictMatching:
+            found = False
+            for currType in currTypes:
+                if currType == t:
+                    found = True
+                    break
+            if not found:
+                currTypes.append(t)
         else:
-            currTypes.append(t)
+            foundAt = -1
+            for i, currType in enumerate(currTypes):
+                currType2 = currType.union(t)
+                if currType2:
+                    foundAt = i
+                    t = currType2
+                    break
+            if foundAt != -1:
+                currTypes[foundAt] = t
+            else:
+                currTypes.append(t)
 
     for a, mm in actors.items():
         print(a)
@@ -64,4 +73,4 @@ def lookAtActors():
                     print(f"    {t}")
         print()
 
-lookAtActors()
+lookAtActors(False)
