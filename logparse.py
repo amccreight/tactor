@@ -31,7 +31,7 @@ def lookAtActors():
             contents = parseJS(contentsRaw)
         except ParseError as p:
             print(p, file=sys.stderr)
-            print(f'  {contentsRaw}', file=sys.stderr)
+            print(f'  while parsing: {contentsRaw}', file=sys.stderr)
             break
 
         # TODO Catch the exception.
