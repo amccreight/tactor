@@ -9,7 +9,7 @@
 # Firefox's IPDL parser.
 
 from ply import lex, yacc
-from jsast import JSNull, JSUndefined, JSID, JSRegExp, jsToString
+from jsast import JSNull, JSUndefined, JSInfinity, JSID, JSRegExp, jsToString
 
 
 class ParseError(Exception):
@@ -21,12 +21,15 @@ class ParseError(Exception):
         return self.error
 
 
+# We're treating Infinity like a reserved word, even though it isn't,
+# which will cause problems if somebody tries to use it as a property.
 reserved = set(
     (
         "false",
         "true",
         "null",
         "void",
+        "Infinity",
     )
 )
 
@@ -87,6 +90,7 @@ def p_JSValue(p):
     """JSValue : '(' JSValue ')'
     | String
     | NUMBER
+    | INFINITY
     | REGEXP
     | JSMap
     | JSArray
@@ -96,6 +100,8 @@ def p_JSValue(p):
     if len(p) == 2:
         if p[1] == "null":
             p[0] = JSNull()
+        elif p[1] == "Infinity":
+            p[0] = JSInfinity()
         else:
             p[0] = p[1]
     elif len(p) == 4:
@@ -171,7 +177,8 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
-    # Some basic parsing unit tests.
+    # Some basic parsing tests.
+    simpleParseAndLog('Infinity')
     simpleParseAndLog("{re:/blah blah\(\/ whatever/}")
     simpleParseAndLog("{'blah':true}")
     simpleParseAndLog('"\\""')

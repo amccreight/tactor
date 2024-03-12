@@ -14,6 +14,10 @@ class JSUndefined:
     def __str__(self):
         return "undefined"
 
+class JSInfinity:
+    def __str__(self):
+        return "Infinity"
+
 class JSID:
     def __init__(self, name):
         self.name = name

@@ -6,7 +6,7 @@
 
 # Typing of JS in Python.
 from enum import IntEnum
-from jsast import JSNull, JSUndefined, JSRegExp, jsToString
+from jsast import JSNull, JSUndefined, JSInfinity, JSRegExp, jsToString
 import copy
 import functools
 
@@ -225,5 +225,7 @@ def jsValToType(v):
         return ArrayType(tts)
     elif isinstance(v, JSRegExp):
         return PrimitiveType(JSPrimitiveType.REGEXP)
+    elif isinstance(v, JSInfinity):
+        return PrimitiveType(JSPrimitiveType.FLOAT)
     else:
         raise Exception(f"Untypeable value: {v}")
