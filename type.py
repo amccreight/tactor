@@ -6,7 +6,7 @@
 
 # Typing of JS in Python.
 from enum import Enum
-from jsast import JSNull, JSUndefined
+from jsast import JSNull, JSUndefined, jsToString
 import copy
 
 
@@ -71,7 +71,7 @@ class MapType(JSType):
         l = []
         for p, pt in self.map.items():
             opt = "?" if p in self.optional else ""
-            l.append(f"{p}{opt}: {pt}")
+            l.append(f"{jsToString(p)}{opt}: {pt}")
         return "{" + ", ".join(l) + "}"
 
     def union(self, o):
