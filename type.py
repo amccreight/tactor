@@ -130,9 +130,9 @@ class ArrayType(JSType):
             return None
 
         # Try to union everything together.
-        t1 = functools.reduce(lambda x, y: x.union(y), self.types)
+        t1 = functools.reduce(lambda x, y: None if x is None else x.union(y), self.types)
         if not t1 is None:
-            t2 = functools.reduce(lambda x, y: x.union(y), o.types)
+            t2 = functools.reduce(lambda x, y: None if x is None else x.union(y), o.types)
             if not t2 is None:
                 t3 = t1.union(t2)
                 if not t3 is None:
