@@ -9,7 +9,7 @@
 # Firefox's IPDL parser.
 
 from ply import lex, yacc
-from jsast import JSNull, JSUndefined, JSID, jsToString
+from jsast import JSNull, JSUndefined, JSID, JSRegExp, jsToString
 
 
 class ParseError(Exception):
@@ -35,6 +35,7 @@ tokens = [
     "NUMBER",
     "STRING1",
     "STRING2",
+    "REGEXP",
 ] + [r.upper() for r in reserved]
 
 def t_ID(t):
@@ -58,13 +59,18 @@ def t_NUMBER(t):
     return t
 
 def t_STRING1(t):
-    r"'(?:[^'\\]|\\.)*'"
+    r"'(?:[^'\\\n]|\\.)*'"
     t.value = t.value[1:-1]
     return t
 
 def t_STRING2(t):
-    r'"(?:[^"\\]|\\.)*"'
+    r'"(?:[^"\\\n]|\\.)*"'
     t.value = t.value[1:-1]
+    return t
+
+def t_REGEXP(t):
+    r"/(?:[^/\\\n]|\\.)*/"
+    t.value = JSRegExp(t.value[1:-1])
     return t
 
 literals = "(){}[],:"
@@ -81,6 +87,7 @@ def p_JSValue(p):
     """JSValue : '(' JSValue ')'
     | String
     | NUMBER
+    | REGEXP
     | JSMap
     | JSArray
     | Bool
@@ -164,6 +171,8 @@ def simpleParseAndLog(s):
     print()
 
 if __name__ == "__main__":
+    # Some basic parsing unit tests.
+    simpleParseAndLog("{re:/blah blah\(\/ whatever/}")
     simpleParseAndLog("{'blah':true}")
     simpleParseAndLog('"\\""')
     simpleParseAndLog('"str\\"ing"')

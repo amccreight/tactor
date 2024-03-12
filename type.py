@@ -6,7 +6,7 @@
 
 # Typing of JS in Python.
 from enum import IntEnum
-from jsast import JSNull, JSUndefined, jsToString
+from jsast import JSNull, JSUndefined, JSRegExp, jsToString
 import copy
 import functools
 
@@ -22,6 +22,7 @@ class JSPrimitiveType(IntEnum):
     NULL = 3
     STRING = 4
     UNDEFINED = 5
+    REGEXP = 6
 
 class PrimitiveType(JSType):
     def __init__(self, prim):
@@ -40,6 +41,7 @@ class PrimitiveType(JSType):
             JSPrimitiveType.NULL: "null",
             JSPrimitiveType.STRING: "string",
             JSPrimitiveType.UNDEFINED: "undefined",
+            JSPrimitiveType.REGEXP: "regexp",
         }[self.prim]
 
     def __lt__(self, o):
@@ -194,5 +196,7 @@ def jsValToType(v):
                tts.append(t)
         sorted(tts)
         return ArrayType(tts)
+    elif isinstance(v, JSRegExp):
+        return PrimitiveType(JSPrimitiveType.REGEXP)
     else:
         raise Exception(f"Untypeable value: {v}")

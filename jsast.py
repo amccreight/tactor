@@ -29,6 +29,22 @@ class JSID:
     def __str__(self):
         return self.name
 
+class JSRegExp:
+    def __init__(self, regexp):
+        assert isinstance(regexp, str)
+        self.regexp = regexp
+
+    def __eq__(self, o):
+        if self.__class__ != o.__class__:
+            return False
+        return self.regexp == o.regexp
+
+    def __hash__(self):
+        return hash(self.regexp)
+
+    def __str__(self):
+        return f"/{self.regexp}/"
+
 def jsToString(jsv):
     if isinstance(jsv, dict):
         s = "{"
