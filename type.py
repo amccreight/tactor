@@ -5,23 +5,23 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # Typing of JS in Python.
-from enum import Enum
+from enum import IntEnum
 from jsast import JSNull, JSUndefined, jsToString
 import copy
+import functools
 
 
 class JSType:
     def __str__(self):
         return "JSTYPE"
 
-JSPrimitiveType = Enum("JSPrimitiveType", [
-    "BOOL",
-    "INTEGER",
-    "FLOAT",
-    "NULL",
-    "STRING",
-    "UNDEFINED",
-    ])
+class JSPrimitiveType(IntEnum):
+    BOOL = 0
+    INTEGER = 1
+    FLOAT = 2
+    NULL = 3
+    STRING = 4
+    UNDEFINED = 5
 
 class PrimitiveType(JSType):
     def __init__(self, prim):
@@ -41,6 +41,11 @@ class PrimitiveType(JSType):
             JSPrimitiveType.STRING: "string",
             JSPrimitiveType.UNDEFINED: "undefined",
         }[self.prim]
+
+    def __lt__(self, o):
+        if self.__class__ != o.__class__:
+            return self.__class__ < o.__class__
+        return self.prim < o.prim
 
     def union(self, o):
         if self != o:
@@ -104,9 +109,6 @@ class ArrayType(JSType):
     def __init__(self, tt):
         # TODO: for now, this is a list of possible types.
         self.types = tt
-        # TODO: actually support this better?
-        assert len(tt) == 1
-        return
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
@@ -114,23 +116,32 @@ class ArrayType(JSType):
         return self.types == o.types
 
     def __str__(self):
-        return f"Array({', '.join(map(lambda t: str(t), self.types))}"
+        return f"Array({', '.join(map(lambda t: str(t), self.types))})"
+
+    def __lt__(self, o):
+        if self.__class__ != o.__class__:
+            return self.__class__ < o.__class__
+        return self.types < o.types
 
     def union(self, o):
         if self.__class__ != o.__class__:
             return None
 
-        if self == o:
-            return copy.deepcopy(self)
-        if len(self.types) == 1 and len(o.types) == 1:
-            newType = self.types[0].union(o.types[0])
-            if not newType:
-                return None
-            else:
-                return ArrayType([newType])
+        # Try to union everything together.
+        t1 = functools.reduce(lambda x, y: x.union(y), self.types)
+        if not t1 is None:
+            t2 = functools.reduce(lambda x, y: x.union(y), o.types)
+            if not t2 is None:
+                t3 = t1.union(t2)
+                if not t3 is None:
+                    return ArrayType([t3])
 
-        # TODO: Implement something for non-singleton array types.
-        return None
+        # If that doesn't work, try eliminating duplicates at least.
+        t2 = copy.copy(self.types)
+        for x in o.types:
+            if not x in self.types:
+                t2.append(x)
+        return ArrayType(t2)
 
 
 class OrType(JSType):
