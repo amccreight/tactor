@@ -123,7 +123,7 @@ class MapType(JSType):
 
 class ArrayType(JSType):
     def __init__(self, tt):
-        self.types = tt
+        self.types = sorted(tt)
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
@@ -170,6 +170,8 @@ class ArrayType(JSType):
 
 class OrType(JSType):
     def __init__(self, t1, t2):
+        if t2 < t1:
+            t1, t2 = t2, t1
         self.type1 = t1
         self.type2 = t2
 
@@ -183,6 +185,13 @@ class OrType(JSType):
 
     def classOrd(self):
         return 3
+
+    def __lt__(self, o):
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
+        if self.type1 == o.type1:
+            return self.type2 < o.type2
+        return self.type1 < o.type1
 
     def union(self, o):
         # TODO: I'm not sure what a good way to deal with this is.
@@ -221,7 +230,6 @@ def jsValToType(v):
             t = jsValToType(val)
             if not t in tts:
                tts.append(t)
-        sorted(tts)
         return ArrayType(tts)
     elif isinstance(v, JSRegExp):
         return PrimitiveType(JSPrimitiveType.REGEXP)

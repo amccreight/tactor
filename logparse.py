@@ -76,8 +76,7 @@ def lookAtActors(args):
             else:
                 print(f"  {m}")
                 tts = [str(t) for t in tt]
-                sorted(tts)
-                for t in tts:
+                for t in sorted(tts):
                     print(f"    {t}")
         print()
 
