@@ -9,7 +9,7 @@
 # Firefox's IPDL parser.
 
 from ply import lex, yacc
-from jsast import JSNull, JSUndefined
+from jsast import JSNull, JSUndefined, JSID, jsToString
 
 
 class ParseError(Exception):
@@ -33,13 +33,16 @@ reserved = set(
 tokens = [
     "ID",
     "NUMBER",
-    "STRING",
+    "STRING1",
+    "STRING2",
 ] + [r.upper() for r in reserved]
 
 def t_ID(t):
     r"[a-zA-Z][a-zA-Z0-9_]*"
     if t.value in reserved:
         t.type = t.value.upper()
+    else:
+        t.value = JSID(t.value)
     return t
 
 # This doesn't deal with many of the ways you can write a number in JS,
@@ -54,7 +57,12 @@ def t_NUMBER(t):
         t.value = int(t.value)
     return t
 
-def t_STRING(t):
+def t_STRING1(t):
+    r"'(?:[^'\\]|\\.)*'"
+    t.value = t.value[1:-1]
+    return t
+
+def t_STRING2(t):
     r'"(?:[^"\\]|\\.)*"'
     t.value = t.value[1:-1]
     return t
@@ -71,7 +79,7 @@ lex.lex(debug=parserDebug)
 
 def p_JSValue(p):
     """JSValue : '(' JSValue ')'
-    | STRING
+    | String
     | NUMBER
     | JSMap
     | JSArray
@@ -90,6 +98,11 @@ def p_JSValue(p):
     else:
         assert False
 
+def p_String(p):
+    """String : STRING1
+    | STRING2"""
+    p[0] = p[1]
+
 def p_JSMap(p):
     """JSMap : '{' JSMapInner '}'
     | '{' '}'"""
@@ -98,9 +111,14 @@ def p_JSMap(p):
     else:
         p[0] = {}
 
+def p_Label(p):
+    """Label : ID
+    | String"""
+    p[0] = p[1]
+
 def p_JSMapInner(p):
-    """JSMapInner : JSMapInner ',' ID ':' JSValue
-    | ID ':' JSValue """
+    """JSMapInner : JSMapInner ',' Label ':' JSValue
+    | Label ':' JSValue """
     if len(p) == 6:
         m = p[1]
         prop = p[3]
@@ -142,16 +160,11 @@ def parseJS(s):
     return yacc.parse(s, debug=parserDebug)
 
 def simpleParseAndLog(s):
-    val = parseJS(s)
-    if isinstance(val, dict):
-        for k, v in val.items():
-            print(f'{k} --> {v}')
-    else:
-        print(val)
-
+    print(jsToString(parseJS(s)))
     print()
 
 if __name__ == "__main__":
+    simpleParseAndLog("{'blah':true}")
     simpleParseAndLog('"\\""')
     simpleParseAndLog('"str\\"ing"')
     simpleParseAndLog('"str\\"in\\"g"')

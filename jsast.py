@@ -13,3 +13,38 @@ class JSNull:
 class JSUndefined:
     def __str__(self):
         return "undefined"
+
+class JSID:
+    def __init__(self, name):
+        self.name = name
+
+    def __eq__(self, o):
+        if self.__class__ != o.__class__:
+            return False
+        return self.name == o.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __str__(self):
+        return self.name
+
+def jsToString(jsv):
+    if isinstance(jsv, dict):
+        s = "{"
+        l = []
+        for k, v in jsv.items():
+            l.append(f'{jsToString(k)}: {jsToString(v)}')
+        s += ", ".join(l) + "}"
+        return s
+    elif isinstance(jsv, list):
+        s = "["
+        l = []
+        for x in jsv:
+            l.append(f'{jsToString(x)}')
+        s += ", ".join(l) + "]"
+        return s
+    elif isinstance(jsv, str):
+        return f'"{jsv}"'
+    else:
+        return str(jsv)
