@@ -56,11 +56,11 @@ class PrimitiveType(JSType):
         return 0
 
     def union(self, o):
-        if self != o:
-            if self.__class__ != o.__class__:
-                return None
+        if self == o:
+            return self
+        if isinstance(o, PrimitiveType) or isinstance(o, MapType):
             return OrType([self, o])
-        return self
+        return None
 
 
 class MapType(JSType):
@@ -97,6 +97,8 @@ class MapType(JSType):
 
     def union(self, o):
         if self.__class__ != o.__class__:
+            if isinstance(o, PrimitiveType):
+                return OrType([self, o])
             return None
         # TODO Do I want some kind of "anymap" when unioning gets too weird?
         # Some actors have this "data" field which has weird constraints I'm not sure I can merge.
@@ -192,8 +194,9 @@ class OrType(JSType):
         # TODO: I'm not sure what a good way to deal with this is.
         # eg union (int | bool) bool or union (int | bool) (bool | int)
 
-        # Right now I'm only combining primitive types, so deal with the simple case there.
-        if isinstance(o, PrimitiveType):
+        # Right now I'm only dealing with primitive and map types, so only
+        # worry about the simple case.
+        if isinstance(o, PrimitiveType) or isinstance(o, MapType):
             if o in self.types:
                 return self
         return None
