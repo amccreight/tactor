@@ -26,6 +26,13 @@ def lookAtActors(args):
             continue
         actorName = mp.group(1)
         messageName = mp.group(2)
+
+        if (actorName == "DevToolsFrame" and
+            messageName == "DevToolsFrameChild:packet"):
+            # These messages are very large and complicated, so ignore them.
+            # I should probably ignore them while logging.
+            continue
+
         contentsRaw = mp.group(3)
         contents = "???"
         try:
