@@ -15,6 +15,9 @@ class JSType:
     def __str__(self):
         return "JSTYPE"
 
+    def classOrd(self):
+        raise Exception("Implement in subclasses!")
+
 class JSPrimitiveType(IntEnum):
     BOOL = 0
     INTEGER = 1
@@ -45,9 +48,12 @@ class PrimitiveType(JSType):
         }[self.prim]
 
     def __lt__(self, o):
-        if self.__class__ != o.__class__:
-            return self.__class__ < o.__class__
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
         return self.prim < o.prim
+
+    def classOrd(self):
+        return 0
 
     def union(self, o):
         if self != o:
@@ -80,6 +86,14 @@ class MapType(JSType):
             opt = "?" if p in self.optional else ""
             l.append(f"{jsToString(p)}{opt}: {pt}")
         return "{" + ", ".join(l) + "}"
+
+    def __lt__(self, o):
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
+        return str(self) < str(o)
+
+    def classOrd(self):
+        return 1
 
     def union(self, o):
         if self.__class__ != o.__class__:
@@ -121,9 +135,12 @@ class ArrayType(JSType):
         return f"Array({', '.join(map(lambda t: str(t), self.types))})"
 
     def __lt__(self, o):
-        if self.__class__ != o.__class__:
-            return self.__class__ < o.__class__
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
         return self.types < o.types
+
+    def classOrd(self):
+        return 2
 
     def union(self, o):
         if self.__class__ != o.__class__:
@@ -152,10 +169,15 @@ class OrType(JSType):
         self.type2 = t2
 
     def __eq__(self, o):
+        if self.__class__ != o.__class__:
+            return False
         self.type1 == o.type1 and self.type2 == o.type2
 
     def __str__(self):
         return f"{self.type1} | {self.type2}"
+
+    def classOrd(self):
+        return 3
 
     def union(self, o):
         # TODO: I'm not sure what a good way to deal with this is.
