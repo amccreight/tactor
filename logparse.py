@@ -6,6 +6,7 @@
 
 # Analyze JS actor logging.
 
+import argparse
 import re
 import sys
 import json
@@ -14,7 +15,7 @@ from type import jsValToType
 
 messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 
-def lookAtActors(strictMatching):
+def lookAtActors(args):
     sys.stdin.reconfigure(encoding='latin1')
 
     actors = {}
@@ -39,7 +40,7 @@ def lookAtActors(strictMatching):
 
         currMessages = actors.setdefault(actorName, {})
         currTypes = currMessages.setdefault(messageName, [])
-        if strictMatching:
+        if args.strict:
             found = False
             for currType in currTypes:
                 if currType == t:
@@ -73,4 +74,10 @@ def lookAtActors(strictMatching):
                     print(f"    {t}")
         print()
 
-lookAtActors(False)
+parser = argparse.ArgumentParser()
+parser.add_argument("--strict",
+                    help="Use strict matching for types, instead of unioning.",
+                    action="store_true")
+args = parser.parse_args()
+
+lookAtActors(args)
