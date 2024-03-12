@@ -59,7 +59,7 @@ class PrimitiveType(JSType):
         if self != o:
             if self.__class__ != o.__class__:
                 return None
-            return OrType(self, o)
+            return OrType([self, o])
         return self
 
 
@@ -169,19 +169,16 @@ class ArrayType(JSType):
 
 
 class OrType(JSType):
-    def __init__(self, t1, t2):
-        if t2 < t1:
-            t1, t2 = t2, t1
-        self.type1 = t1
-        self.type2 = t2
+    def __init__(self, tt):
+        self.types = sorted(tt)
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
             return False
-        self.type1 == o.type1 and self.type2 == o.type2
+        self.types == o.types
 
     def __str__(self):
-        return f"{self.type1} | {self.type2}"
+        return " | ".join(map(lambda t: str(t), self.types))
 
     def classOrd(self):
         return 3
@@ -189,9 +186,7 @@ class OrType(JSType):
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
             return self.classOrd() < o.classOrd()
-        if self.type1 == o.type1:
-            return self.type2 < o.type2
-        return self.type1 < o.type1
+        return self.types < o.types
 
     def union(self, o):
         # TODO: I'm not sure what a good way to deal with this is.
@@ -199,7 +194,7 @@ class OrType(JSType):
 
         # Right now I'm only combining primitive types, so deal with the simple case there.
         if isinstance(o, PrimitiveType):
-            if self.type1 == o or self.type2 == o:
+            if o in self.types:
                 return self
         return None
 
