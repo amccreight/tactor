@@ -20,12 +20,12 @@ class JSType:
 
 class JSPrimitiveType(IntEnum):
     BOOL = 0
-    INTEGER = 1
-    FLOAT = 2
+    FLOAT = 1
+    INTEGER = 2
     NULL = 3
-    STRING = 4
-    UNDEFINED = 5
-    REGEXP = 6
+    REGEXP = 4
+    STRING = 5
+    UNDEFINED = 6
 
 class PrimitiveType(JSType):
     def __init__(self, prim):
@@ -39,12 +39,12 @@ class PrimitiveType(JSType):
     def __str__(self):
         return {
             JSPrimitiveType.BOOL: "bool",
-            JSPrimitiveType.INTEGER: "int",
             JSPrimitiveType.FLOAT: "float",
+            JSPrimitiveType.INTEGER: "int",
             JSPrimitiveType.NULL: "null",
+            JSPrimitiveType.REGEXP: "regexp",
             JSPrimitiveType.STRING: "string",
             JSPrimitiveType.UNDEFINED: "undefined",
-            JSPrimitiveType.REGEXP: "regexp",
         }[self.prim]
 
     def __lt__(self, o):
