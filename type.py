@@ -123,7 +123,6 @@ class MapType(JSType):
 
 class ArrayType(JSType):
     def __init__(self, tt):
-        # TODO: for now, this is a list of possible types.
         self.types = tt
 
     def __eq__(self, o):
@@ -145,6 +144,12 @@ class ArrayType(JSType):
     def union(self, o):
         if self.__class__ != o.__class__:
             return None
+
+        # An empty array can be any array type.
+        if len(self.types) == 0:
+            return copy.copy(o)
+        if len(o.types) == 0:
+            return copy.copy(self)
 
         # Try to union everything together.
         t1 = functools.reduce(lambda x, y: None if x is None else x.union(y), self.types)
