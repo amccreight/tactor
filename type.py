@@ -60,6 +60,8 @@ class PrimitiveType(JSType):
             return self
         if isinstance(o, PrimitiveType) or isinstance(o, MapType):
             return OrType([self, o])
+        if isinstance(o, OrType):
+            return o.union(self)
         return None
 
 
@@ -193,10 +195,16 @@ class OrType(JSType):
         # eg union (int | bool) bool or union (int | bool) (bool | int)
 
         # Right now I'm only dealing with primitive and map types, so only
-        # worry about the simple case.
-        if isinstance(o, PrimitiveType) or isinstance(o, MapType):
+        # worry about some simple cases.
+        if isinstance(o, MapType):
             if o in self.types:
-                return self
+                return copy.copy(self)
+        elif isinstance(o, PrimitiveType):
+            if o in self.types:
+                return copy.copy(self)
+            tt = copy.copy(self.types)
+            tt.append(o)
+            return OrType(tt)
         return None
 
 
