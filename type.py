@@ -153,21 +153,19 @@ class ArrayType(JSType):
         if len(o.types) == 0:
             return copy.copy(self)
 
-        # Try to union everything together.
-        t1 = functools.reduce(lambda x, y: None if x is None else x.union(y), self.types)
-        if not t1 is None:
-            t2 = functools.reduce(lambda x, y: None if x is None else x.union(y), o.types)
-            if not t2 is None:
-                t3 = t1.union(t2)
-                if not t3 is None:
-                    return ArrayType([t3])
-
-        # If that doesn't work, try eliminating duplicates at least.
-        t2 = copy.copy(self.types)
+        # First, eliminate duplicates.
+        newTypes = copy.copy(self.types)
         for x in o.types:
             if not x in self.types:
-                t2.append(x)
-        return ArrayType(t2)
+                newTypes.append(x)
+        newTypes.sort()
+        newTypes2 = functools.reduce(lambda x, y: None if x is None else x.union(y), newTypes)
+        if newTypes2:
+            if isinstance(newTypes2, OrType):
+                return ArrayType(newTypes2.types)
+            return ArrayType([newTypes2])
+        else:
+            return ArrayType(newTypes)
 
 
 class OrType(JSType):
