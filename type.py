@@ -23,9 +23,10 @@ class JSPrimitiveType(IntEnum):
     FLOAT = 1
     INTEGER = 2
     NULL = 3
-    REGEXP = 4
-    STRING = 5
-    UNDEFINED = 6
+    NUMBER = 4
+    REGEXP = 5
+    STRING = 6
+    UNDEFINED = 7
 
 class PrimitiveType(JSType):
     def __init__(self, prim):
@@ -42,6 +43,7 @@ class PrimitiveType(JSType):
             JSPrimitiveType.FLOAT: "float",
             JSPrimitiveType.INTEGER: "int",
             JSPrimitiveType.NULL: "null",
+            JSPrimitiveType.NUMBER: "number",
             JSPrimitiveType.REGEXP: "regexp",
             JSPrimitiveType.STRING: "string",
             JSPrimitiveType.UNDEFINED: "undefined",
@@ -210,13 +212,28 @@ class OrType(JSType):
 
 # TODO: Probably need an "any" type.
 
+def FloatType(useNumberType):
+    if useNumberType:
+        pt = JSPrimitiveType.NUMBER
+    else:
+        pt = JSPrimitiveType.FLOAT
+    return PrimitiveType(pt)
+
+def IntegerType(useNumberType):
+    if useNumberType:
+        pt = JSPrimitiveType.NUMBER
+    else:
+        pt = JSPrimitiveType.INTEGER
+    return PrimitiveType(pt)
+
 def jsValToType(v):
+    useNumberType = True
     if isinstance(v, bool):
         return PrimitiveType(JSPrimitiveType.BOOL)
     elif isinstance(v, int):
-        return PrimitiveType(JSPrimitiveType.INTEGER)
-    elif isinstance(v, float):
-        return PrimitiveType(JSPrimitiveType.FLOAT)
+        return IntegerType(useNumberType)
+    elif isinstance(v, float) or isinstance(v, JSInfinity):
+        return FloatType(useNumberType)
     elif isinstance(v, JSNull):
         return PrimitiveType(JSPrimitiveType.NULL)
     elif isinstance(v, str):
@@ -237,7 +254,5 @@ def jsValToType(v):
         return ArrayType(tts)
     elif isinstance(v, JSRegExp):
         return PrimitiveType(JSPrimitiveType.REGEXP)
-    elif isinstance(v, JSInfinity):
-        return PrimitiveType(JSPrimitiveType.FLOAT)
     else:
         raise Exception(f"Untypeable value: {v}")
