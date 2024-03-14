@@ -9,7 +9,7 @@
 # Firefox's IPDL parser.
 
 from ply import lex, yacc
-from jsast import JSNull, JSUndefined, JSInfinity, JSID, JSRegExp, jsToString
+from jsast import JSNull, JSUndefined, JSInfinity, JSID, JSDate, JSRegExp, jsToString
 
 
 class ParseError(Exception):
@@ -30,6 +30,7 @@ reserved = set(
         "null",
         "void",
         "Infinity",
+        "new",
     )
 )
 
@@ -96,7 +97,8 @@ def p_JSValue(p):
     | JSArray
     | Bool
     | NULL
-    | VOID NUMBER"""
+    | VOID NUMBER
+    | NEW ID '(' NUMBER ')'"""
     if len(p) == 2:
         if p[1] == "null":
             p[0] = JSNull()
@@ -108,6 +110,11 @@ def p_JSValue(p):
         p[0] = p[2]
     elif len(p) == 3:
         p[0] = JSUndefined()
+    elif len(p) == 6:
+        if str(p[2]) == "Date":
+            p[0] = JSDate()
+        else:
+            assert False, f"Unknown constructor {p[2]}"
     else:
         assert False
 

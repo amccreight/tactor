@@ -33,6 +33,11 @@ class JSID:
     def __str__(self):
         return self.name
 
+# I don't really care enough to store the argument.
+class JSDate:
+    def __str__(self):
+        return "Date"
+
 class JSRegExp:
     def __init__(self, regexp):
         assert isinstance(regexp, str)
