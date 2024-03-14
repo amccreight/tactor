@@ -138,8 +138,13 @@ def p_JSMap(p):
 def p_Label(p):
     """Label : ID
     | String
-    | NUMBER"""
-    p[0] = p[1]
+    | NUMBER
+    | NEW"""
+    if p[1] == "new":
+        # Reserved words can be used as object properties. Thanks, Javascript.
+        p[0] = "new"
+    else:
+        p[0] = p[1]
 
 def p_JSMapInner(p):
     """JSMapInner : JSMapInner ',' Label ':' JSValue
