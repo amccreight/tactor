@@ -137,7 +137,8 @@ def p_JSMap(p):
 
 def p_Label(p):
     """Label : ID
-    | String"""
+    | String
+    | NUMBER"""
     p[0] = p[1]
 
 def p_JSMapInner(p):
