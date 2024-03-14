@@ -62,14 +62,14 @@ class PrimitiveType(JSType):
     def union(self, o):
         if self == o:
             return self
-        if isinstance(o, PrimitiveType) or isinstance(o, MapType):
+        if isinstance(o, PrimitiveType) or isinstance(o, StructType):
             return OrType([self, o])
         if isinstance(o, OrType):
             return o.union(self)
         return None
 
 
-class MapType(JSType):
+class StructType(JSType):
     def __init__(self, m, optional):
         self.map = m
         self.optional = optional
@@ -126,7 +126,41 @@ class MapType(JSType):
                 continue
             newMap[p] = pt
             newOptional.add(p)
-        return MapType(newMap, newOptional)
+        return StructType(newMap, newOptional)
+
+
+# This is the type for a JS object that is being used as a map.
+# All keys have the keyType, and all values have the valType.
+class ObjMapType(JSType):
+    def __init__(self, keyType, valType):
+        self.keyType = keyType
+        self.valType = valType
+
+    def __eq__(self, o):
+        if self.__class__ != o.__class__:
+            return False
+        return (self.keyType == o.keyType and
+                self.valType == o.valType)
+
+    def __str__(self):
+        return f"ObjMap({self.keyType}, {self.valType})"
+
+    def __lt__(self, o):
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
+        if self.keyType < o.keyType:
+            return True
+        if self.keyType == o.keyType:
+            return self.valType < o.valType
+        return False
+
+    def classOrd(self):
+        return 2
+
+    def union(self, o):
+        if self == o:
+            return copy.copy(self)
+        return None
 
 
 class ArrayType(JSType):
@@ -147,7 +181,7 @@ class ArrayType(JSType):
         return self.types < o.types
 
     def classOrd(self):
-        return 2
+        return 3
 
     def union(self, o):
         if self.__class__ != o.__class__:
@@ -187,7 +221,7 @@ class OrType(JSType):
         return " | ".join(map(lambda t: str(t), self.types))
 
     def classOrd(self):
-        return 3
+        return 4
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -200,7 +234,7 @@ class OrType(JSType):
 
         # Right now I'm only dealing with primitive and map types, so only
         # worry about some simple cases.
-        if isinstance(o, MapType):
+        if isinstance(o, StructType):
             if o in self.types:
                 return copy.copy(self)
         elif isinstance(o, PrimitiveType):
@@ -229,6 +263,11 @@ def IntegerType(useNumberType):
     return PrimitiveType(pt)
 
 def jsValToType(v):
+    def mapKeyType(k):
+        if isinstance(p, JSID):
+            return None
+        return jsValToType(k)
+
     useNumberType = True
     if isinstance(v, bool):
         return PrimitiveType(JSPrimitiveType.BOOL)
@@ -245,10 +284,27 @@ def jsValToType(v):
     elif isinstance(v, JSUndefined):
         return PrimitiveType(JSPrimitiveType.UNDEFINED)
     elif isinstance(v, dict):
+        objMapMaybe = True
+        objMapKeyType = None
+        objMapValType = None
         tts = {}
         for p, pv in v.items():
-            tts[p] = jsValToType(pv)
-        return MapType(tts, set([]))
+            pvType = jsValToType(pv)
+            tts[p] = pvType
+            if objMapMaybe:
+                if objMapKeyType is None:
+                    objMapKeyType = mapKeyType(p)
+                if objMapKeyType is None:
+                    objMapMaybe = False
+                    continue
+                if objMapValType is None:
+                    objMapValType = pvType
+                    assert not pvType is None
+                else:
+                    objMapMaybe = pvType == objMapValType
+        if objMapMaybe and len(tts) > 0:
+            return ObjMapType(objMapKeyType, objMapValType)
+        return StructType(tts, set([]))
     elif isinstance(v, list):
         tts = []
         for val in v:
