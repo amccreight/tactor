@@ -18,6 +18,10 @@ class JSInfinity:
     def __str__(self):
         return "Infinity"
 
+class JSNaN:
+    def __str__(self):
+        return "NaN"
+
 class JSID:
     def __init__(self, name):
         self.name = name

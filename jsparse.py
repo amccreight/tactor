@@ -9,7 +9,7 @@
 # Firefox's IPDL parser.
 
 from ply import lex, yacc
-from jsast import JSNull, JSUndefined, JSInfinity, JSID, JSDate, JSRegExp, jsToString
+from jsast import *
 
 
 class ParseError(Exception):
@@ -21,8 +21,8 @@ class ParseError(Exception):
         return self.error
 
 
-# We're treating Infinity like a reserved word, even though it isn't,
-# which will cause problems if somebody tries to use it as a property.
+# We're treating Infinity and NaN like reserved words, even though they aren't,
+# which will cause problems if somebody tries to use them as a property.
 reserved = set(
     (
         "false",
@@ -30,6 +30,7 @@ reserved = set(
         "null",
         "void",
         "Infinity",
+        "NaN",
         "new",
     )
 )
@@ -89,12 +90,13 @@ lex.lex(debug=parserDebug)
 
 def p_JSValue(p):
     """JSValue : '(' JSValue ')'
+    | JSMap
+    | JSArray
     | String
     | NUMBER
     | INFINITY
+    | NAN
     | REGEXP
-    | JSMap
-    | JSArray
     | Bool
     | NULL
     | VOID NUMBER
@@ -104,6 +106,8 @@ def p_JSValue(p):
             p[0] = JSNull()
         elif p[1] == "Infinity":
             p[0] = JSInfinity()
+        elif p[1] == "NaN":
+            p[0] = JSNaN()
         else:
             p[0] = p[1]
     elif len(p) == 4:
