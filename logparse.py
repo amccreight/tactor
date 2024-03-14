@@ -40,7 +40,7 @@ def lookAtActors(args):
         except ParseError as p:
             print(p, file=sys.stderr)
             print(f'  while parsing: {contentsRaw}', file=sys.stderr)
-            break
+            return
 
         # TODO Catch the exception.
         t = jsValToType(contents)
