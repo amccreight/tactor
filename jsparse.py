@@ -56,7 +56,7 @@ def t_ID(t):
 # This probably loses precision in various situations, but we don't actually
 # care what the value is.
 def t_NUMBER(t):
-    r"-?\d+(?:[.]\d+)?"
+    r"-?\d+(?:[.]\d+(?:[Ee][+-]?\d+)?)?"
     if "." in t.value:
         t.value = float(t.value)
     else:
