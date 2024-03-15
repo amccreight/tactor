@@ -18,43 +18,22 @@ class JSType:
     def classOrd(self):
         raise Exception("Implement in subclasses!")
 
-class JSPrimitiveType(IntEnum):
-    BOOL = 0
-    DATE = 1
-    FLOAT = 2
-    INTEGER = 3
-    NULL = 4
-    NUMBER = 5
-    REGEXP = 6
-    STRING = 7
-    UNDEFINED = 8
-
 class PrimitiveType(JSType):
-    def __init__(self, prim):
-        self.prim = prim
+    def __init__(self, name):
+        self.name = name
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
             return False
-        return self.prim == o.prim
+        return self.name == o.name
 
     def __str__(self):
-        return {
-            JSPrimitiveType.BOOL: "bool",
-            JSPrimitiveType.DATE: "date",
-            JSPrimitiveType.FLOAT: "float",
-            JSPrimitiveType.INTEGER: "int",
-            JSPrimitiveType.NULL: "null",
-            JSPrimitiveType.NUMBER: "number",
-            JSPrimitiveType.REGEXP: "regexp",
-            JSPrimitiveType.STRING: "string",
-            JSPrimitiveType.UNDEFINED: "undefined",
-        }[self.prim]
+        return self.name
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
             return self.classOrd() < o.classOrd()
-        return self.prim < o.prim
+        return self.name < o.name
 
     def classOrd(self):
         return 0
@@ -250,16 +229,16 @@ class OrType(JSType):
 
 def FloatType(useNumberType):
     if useNumberType:
-        pt = JSPrimitiveType.NUMBER
+        pt = "number"
     else:
-        pt = JSPrimitiveType.FLOAT
+        pt = "float"
     return PrimitiveType(pt)
 
 def IntegerType(useNumberType):
     if useNumberType:
-        pt = JSPrimitiveType.NUMBER
+        pt = "number"
     else:
-        pt = JSPrimitiveType.INTEGER
+        pt = "int"
     return PrimitiveType(pt)
 
 def jsValToType(v):
@@ -270,7 +249,7 @@ def jsValToType(v):
 
     useNumberType = True
     if isinstance(v, bool):
-        return PrimitiveType(JSPrimitiveType.BOOL)
+        return PrimitiveType("bool")
     elif isinstance(v, int):
         return IntegerType(useNumberType)
     elif (isinstance(v, float) or
@@ -278,11 +257,11 @@ def jsValToType(v):
           isinstance(v, JSNaN)):
         return FloatType(useNumberType)
     elif isinstance(v, JSNull):
-        return PrimitiveType(JSPrimitiveType.NULL)
+        return PrimitiveType("null")
     elif isinstance(v, str):
-        return PrimitiveType(JSPrimitiveType.STRING)
+        return PrimitiveType("string")
     elif isinstance(v, JSUndefined):
-        return PrimitiveType(JSPrimitiveType.UNDEFINED)
+        return PrimitiveType("undefined")
     elif isinstance(v, dict):
         objMapMaybe = True
         objMapKeyType = None
@@ -313,8 +292,8 @@ def jsValToType(v):
                tts.append(t)
         return ArrayType(tts)
     elif isinstance(v, JSRegExp):
-        return PrimitiveType(JSPrimitiveType.REGEXP)
+        return PrimitiveType("regexp")
     elif isinstance(v, JSDate):
-        return PrimitiveType(JSPrimitiveType.DATE)
+        return PrimitiveType("date")
     else:
         raise Exception(f"Untypeable value: {v}")
