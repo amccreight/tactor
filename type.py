@@ -293,7 +293,7 @@ def jsValToType(v):
         return ArrayType(tts)
     elif isinstance(v, JSRegExp):
         return PrimitiveType("regexp")
-    elif isinstance(v, JSDate):
-        return PrimitiveType("date")
+    elif isinstance(v, JSBuiltin):
+        return PrimitiveType(v.name)
     else:
         raise Exception(f"Untypeable value: {v}")

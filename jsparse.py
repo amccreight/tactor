@@ -100,7 +100,7 @@ def p_JSValue(p):
     | Bool
     | NULL
     | VOID NUMBER
-    | NEW ID '(' NUMBER ')'"""
+    | NEW ID '(' FunArgs ')'"""
     if len(p) == 2:
         if p[1] == "null":
             p[0] = JSNull()
@@ -115,12 +115,21 @@ def p_JSValue(p):
     elif len(p) == 3:
         p[0] = JSUndefined()
     elif len(p) == 6:
-        if str(p[2]) == "Date":
-            p[0] = JSDate()
-        else:
-            assert False, f"Unknown constructor {p[2]}"
+        p[0] = JSBuiltin(p[2].name)
     else:
         assert False
+
+def p_FunArgs(p):
+    """FunArgs : JSValue
+    | JSValue ',' FunArgs
+    | """
+    if len(p) == 2:
+        p[0] = [p[1]]
+    elif len(p) == 4:
+        p[0] = [p[1]] + p[3]
+    else:
+        assert len(p) == 1
+        p[0] = []
 
 def p_String(p):
     """String : STRING1

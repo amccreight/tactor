@@ -37,10 +37,14 @@ class JSID:
     def __str__(self):
         return self.name
 
-# I don't really care enough to store the argument.
-class JSDate:
+# I don't really care enough to store the arguments.
+class JSBuiltin:
+    def __init__(self, name):
+        assert name == "Date" or name == "TypeError", f"Unknown constructor {name}"
+        self.name = name
+
     def __str__(self):
-        return "Date"
+        return self.name
 
 class JSRegExp:
     def __init__(self, regexp):
