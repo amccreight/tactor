@@ -15,7 +15,7 @@ import re
 import sys
 import json
 from jsparse import parseJS, ParseError
-from type import jsValToType
+from type_py import jsValToType
 
 messagePatt = re.compile('QQQ ACTOR ([^ ]+) MESSAGE ([^ ]+) CONTENTS (.+)$')
 
