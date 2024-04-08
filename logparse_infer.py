@@ -17,13 +17,16 @@
 #   "AnyToJSIPCValue fallback with" warnings.
 # 3) Tracking "Failed to serialize" warnings might be useful, too.
 
+# It would be nice to have information about which are the most frequent
+# messages with "Any" in the type. Also I could collect information about
+# the field names for "Any" types. eg if a field named lastModifiedDate
+# has Any, it is probably a Type.
 
 import argparse
 import re
 import sys
 import json
-from jsparse import parseJS, ParseError
-from type import jsValToType
+from type_parse import parseType, ParseError
 
 
 typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$')
@@ -55,53 +58,51 @@ def lookAtActors(args):
         ftswp = failedToSerializeWarningPatt.search(l)
         if ftswp:
             failedSerialize += 1
-        continue
-        mp = messagePatt.search(l)
-        if not mp:
-            continue
-        actorName = mp.group(1)
-        messageName = mp.group(2)
-
-        if (actorName == "DevToolsFrame" and
-            messageName == "DevToolsFrameChild:packet"):
-            # These messages are very large and complicated, so ignore them.
-            # I should probably ignore them while logging.
             continue
 
-        contentsRaw = mp.group(3)
-        contents = "???"
-        try:
-            contents = parseJS(contentsRaw)
-        except ParseError as p:
-            print(p, file=sys.stderr)
-            print(f'  while parsing: {contentsRaw}', file=sys.stderr)
-            return
+        tp = typePatt.search(l)
+        if not tp:
+            continue
 
-        # TODO Catch the exception.
-        t = jsValToType(contents)
+        isSend = tp.group(1) == "Send"
+        actorName = tp.group(2)
+        messageName = tp.group(3)
 
-        currMessages = actors.setdefault(actorName, {})
-        currTypes = currMessages.setdefault(messageName, [])
-        if args.strict:
-            found = False
-            for currType in currTypes:
-                if currType == t:
-                    found = True
-                    break
-            if not found:
-                currTypes.append(t)
-        else:
-            foundAt = -1
-            for i, currType in enumerate(currTypes):
-                currType2 = currType.union(t)
-                if currType2:
-                    foundAt = i
-                    t = currType2
-                    break
-            if foundAt != -1:
-                currTypes[foundAt] = t
+        # XXX In the previous version of this script, I was skipping
+        # for messages with actorName == "DevToolsFrame" and
+        # messageName == "DevToolsFrameChild:packet".
+
+        typeRaw = tp.group(4)
+        currActor = actors.setdefault(actorName, {})
+        currMessage = currActor.setdefault(messageName, set([]))
+        currMessage.add(typeRaw)
+
+
+    for a, mm in actors.items():
+        print(a)
+        for m, tt in mm.items():
+            ttl = []
+
+            for typeRaw in tt:
+                try:
+                    ty = parseType(typeRaw)
+                except ParseError as p:
+                    print(p, file=sys.stderr)
+                    print(f'  while parsing: {typeRaw}', file=sys.stderr)
+                    return
+                ttl.append(ty)
+
+            if len(ttl) == 1:
+                print(f"  {m} {ttl[0]}")
             else:
-                currTypes.append(t)
+                print(f"  {m}")
+                tts = [str(t) for t in ttl]
+                for t in sorted(tts):
+                    print(f"    {t}")
+        print()
+
+    print("=========================")
+    print()
 
     for t, c in fallbackWith.items():
         print(f"Fallback with {t}; count: {c}")
@@ -110,19 +111,6 @@ def lookAtActors(args):
     print(f"Fallback with ESClass::Other; count: ???")
     print()
     print(f"Failed to serialize count: {failedSerialize}")
-    return
-
-    for a, mm in actors.items():
-        print(a)
-        for m, tt in mm.items():
-            if len(tt) == 1:
-                print(f"  {m} {tt[0]}")
-            else:
-                print(f"  {m}")
-                tts = [str(t) for t in tt]
-                for t in sorted(tts):
-                    print(f"    {t}")
-        print()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--strict",
