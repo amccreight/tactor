@@ -6,6 +6,10 @@
 
 # Analyze JS actor logging.
 
+# This works with toSource()-based-logging for JS IPC messages as input
+# for a Python-based type inference. It is not compatible with the latest
+# version of logging.
+
 import argparse
 import re
 import sys
