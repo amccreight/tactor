@@ -26,6 +26,7 @@ reserved = set(
         "number",
         "Any",
         "ArrayType",
+        "Union",
     )
 )
 
@@ -70,7 +71,8 @@ def p_JSType(p):
     | NUMBER
     | ANY
     | JSObject
-    | JSArray"""
+    | JSArray
+    | Union"""
     p[0] = p[1]
 
 def p_JSObject(p):
@@ -107,6 +109,8 @@ def p_JSObjectInner(p):
         p[0] = m
 
 # XXX Change this to look like an actual JS array?
+# XXX The newest version only supports a single type, so we can't really
+# implement it as a Python array.
 def p_JSArray(p):
     """JSArray : ARRAYTYPE '(' JSArrayInner ')'
     | ARRAYTYPE '(' JSArrayInner ',' ')'
@@ -122,6 +126,30 @@ def p_JSArray(p):
 def p_JSArrayInner(p):
     """JSArrayInner : JSType
     | JSArrayInner ',' JSType"""
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        assert len(p) == 4
+        p[1].append(p[3])
+        p[0] = p[1]
+
+# XXX I shouldn't represent both this and arrays
+# as a Python array.
+def p_Union(p):
+    """Union : UNION '(' UnionInner ')'
+    | UNION '(' UnionInner ',' ')'
+    | UNION '(' ')' """
+    if len(p) == 5:
+        p[0] = p[3]
+    elif len(p) == 6:
+        p[0] = p[3]
+    else:
+        assert len(p) == 4
+        p[0] = []
+
+def p_UnionInner(p):
+    """UnionInner : JSType
+    | UnionInner ',' JSType"""
     if len(p) == 2:
         p[0] = [p[1]]
     else:
