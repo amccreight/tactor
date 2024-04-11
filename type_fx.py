@@ -9,9 +9,9 @@ class JSType:
         return "JSTYPE"
 
 class ObjectType(JSType):
-    def __init__(self, m, optional):
+    def __init__(self, m):
         self.map = m
-        self.optional = optional
+        self.optional = set([])
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
@@ -27,9 +27,11 @@ class ObjectType(JSType):
 
     def __str__(self):
         l = []
-        for p, pt in self.map.items():
+        keys = list(self.map.keys())
+        keys.sort()
+        for p in keys:
             opt = "?" if p in self.optional else ""
-            l.append(f"{str(p)}{opt}: {pt}")
+            l.append(f"{str(p)}{opt}: {self.map[p]}")
         return "{" + ", ".join(l) + "}"
 
     def __lt__(self, o):

@@ -81,11 +81,11 @@ def p_ObjectType(p):
     | '{' ObjectTypeInner ',' '}'
     | '{' '}'"""
     if len(p) == 4:
-        p[0] = ObjectType(p[2], {})
+        p[0] = ObjectType(p[2])
     elif len(p) == 5:
-        p[0] = ObjectType(p[2], {})
+        p[0] = ObjectType(p[2])
     else:
-        p[0] = ObjectType({}, {})
+        p[0] = ObjectType({})
 
 # This will definitely cause problems if we have a keyword as a key.
 def p_Key(p):
