@@ -74,24 +74,21 @@ def lookAtActors(args):
 
         typeRaw = tp.group(4)
         currActor = actors.setdefault(actorName, {})
-        currMessage = currActor.setdefault(messageName, set([]))
-        currMessage.add(typeRaw)
+        currMessage = currActor.setdefault(messageName, [])
+        try:
+            ty = parseType(typeRaw)
+            if ty not in currMessage:
+                currMessage.append(ty)
+        except ParseError as p:
+            print(p, file=sys.stderr)
+            print(f'  while parsing: {typeRaw}', file=sys.stderr)
+            return
 
 
     for a, mm in actors.items():
         print(a)
         for m, tt in mm.items():
-            ttl = []
-
-            for typeRaw in tt:
-                try:
-                    ty = parseType(typeRaw)
-                except ParseError as p:
-                    print(p, file=sys.stderr)
-                    print(f'  while parsing: {typeRaw}', file=sys.stderr)
-                    return
-                ttl.append(ty)
-
+            ttl = list(tt)
             if len(ttl) == 1:
                 print(f"  {m} {ttl[0]}")
             else:
