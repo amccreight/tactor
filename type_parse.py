@@ -113,8 +113,13 @@ def p_ObjectTypeInner(p):
 # XXX The newest version only supports a single type, so we can't really
 # implement it as a Python array.
 def p_ArrayType(p):
-    """ArrayType : ARRAYTYPE '(' JSType ')'"""
-    p[0] = ArrayType(p[3])
+    """ArrayType : ARRAYTYPE '(' JSType ')'
+    | ARRAYTYPE '(' ')'"""
+    if len(p) == 5:
+        p[0] = ArrayType(p[3])
+    else:
+        assert len(p) == 4
+        p[0] = ArrayType(None)
 
 # XXX I shouldn't represent both this and arrays
 # as a Python array.

@@ -45,6 +45,7 @@ class ObjectType(JSType):
 
 class ArrayType(JSType):
     def __init__(self, elementType):
+        # elementType can be None to represent the type of an empty array.
         self.elementType = elementType
 
     def __eq__(self, o):
@@ -53,7 +54,11 @@ class ArrayType(JSType):
         return self.elementType == o.elementType
 
     def __str__(self):
-        return f"Array({self.elementType})"
+        if self.elementType:
+            elementString = str(self.elementType)
+        else:
+            elementString = ""
+        return f"Array({elementString})"
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -66,6 +71,7 @@ class ArrayType(JSType):
 
 class UnionType(JSType):
     def __init__(self, tt):
+        assert len(tt) > 1
         self.types = sorted(tt)
 
     def __eq__(self, o):
