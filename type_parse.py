@@ -7,6 +7,7 @@
 # Parsing the prototype JSIPCValue type output.
 
 from ply import lex, yacc
+from type_fx import ObjectType, ArrayType, UnionType
 
 
 class ParseError(Exception):
@@ -70,21 +71,21 @@ def p_JSType(p):
     | BOOL
     | NUMBER
     | ANY
-    | JSObject
-    | JSArray
+    | ObjectType
+    | ArrayType
     | Union"""
     p[0] = p[1]
 
-def p_JSObject(p):
-    """JSObject : '{' JSObjectInner '}'
-    | '{' JSObjectInner ',' '}'
+def p_ObjectType(p):
+    """ObjectType : '{' ObjectTypeInner '}'
+    | '{' ObjectTypeInner ',' '}'
     | '{' '}'"""
     if len(p) == 4:
-        p[0] = p[2]
+        p[0] = ObjectType(p[2], {})
     elif len(p) == 5:
-        p[0] = p[2]
+        p[0] = ObjectType(p[2], {})
     else:
-        p[0] = {}
+        p[0] = ObjectType({}, {})
 
 # This will definitely cause problems if we have a keyword as a key.
 def p_Key(p):
@@ -92,8 +93,8 @@ def p_Key(p):
     | INTEGER"""
     p[0] = p[1]
 
-def p_JSObjectInner(p):
-    """JSObjectInner : JSObjectInner ',' Key ':' JSType
+def p_ObjectTypeInner(p):
+    """ObjectTypeInner : ObjectTypeInner ',' Key ':' JSType
     | Key ':' JSType"""
     if len(p) == 6:
         m = p[1]
@@ -111,27 +112,9 @@ def p_JSObjectInner(p):
 # XXX Change this to look like an actual JS array?
 # XXX The newest version only supports a single type, so we can't really
 # implement it as a Python array.
-def p_JSArray(p):
-    """JSArray : ARRAYTYPE '(' JSArrayInner ')'
-    | ARRAYTYPE '(' JSArrayInner ',' ')'
-    | ARRAYTYPE '(' ')' """
-    if len(p) == 5:
-        p[0] = p[3]
-    elif len(p) == 6:
-        p[0] = p[3]
-    else:
-        assert len(p) == 4
-        p[0] = []
-
-def p_JSArrayInner(p):
-    """JSArrayInner : JSType
-    | JSArrayInner ',' JSType"""
-    if len(p) == 2:
-        p[0] = [p[1]]
-    else:
-        assert len(p) == 4
-        p[1].append(p[3])
-        p[0] = p[1]
+def p_ArrayType(p):
+    """ArrayType : ARRAYTYPE '(' JSType ')'"""
+    p[0] = ArrayType(p[3])
 
 # XXX I shouldn't represent both this and arrays
 # as a Python array.
@@ -140,12 +123,12 @@ def p_Union(p):
     | UNION '(' UnionInner ',' ')'
     | UNION '(' ')' """
     if len(p) == 5:
-        p[0] = p[3]
+        p[0] = UnionType(p[3])
     elif len(p) == 6:
-        p[0] = p[3]
+        p[0] = UnionType(p[3])
     else:
         assert len(p) == 4
-        p[0] = []
+        p[0] = UnionType([])
 
 def p_UnionInner(p):
     """UnionInner : JSType
