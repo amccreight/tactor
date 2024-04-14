@@ -7,7 +7,7 @@
 # Parsing the prototype JSIPCValue type output.
 
 from ply import lex, yacc
-from type_fx import ObjectType, ArrayType, UnionType
+from type_fx import JSPropertyType, ObjectType, ArrayType, UnionType
 
 
 class ParseError(Exception):
@@ -85,7 +85,7 @@ def p_ObjectType(p):
     elif len(p) == 5:
         p[0] = ObjectType(p[2])
     else:
-        p[0] = ObjectType({})
+        p[0] = ObjectType([])
 
 # This will definitely cause problems if we have a keyword as a key.
 def p_Key(p):
@@ -97,17 +97,12 @@ def p_ObjectTypeInner(p):
     """ObjectTypeInner : ObjectTypeInner ',' Key ':' JSType
     | Key ':' JSType"""
     if len(p) == 6:
-        m = p[1]
-        k = p[3]
-        v = p[5]
-        assert not k in m
-        m[k] = v
-        p[0] = m
+        tt = p[1]
+        tt.append(JSPropertyType(p[3], p[5]))
+        p[0] = tt
     else:
         assert len(p) == 4
-        m = {}
-        m[p[1]] = p[3]
-        p[0] = m
+        p[0] = [JSPropertyType(p[1], p[3])]
 
 # XXX Change this to look like an actual JS array?
 # XXX The newest version only supports a single type, so we can't really
