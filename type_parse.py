@@ -53,7 +53,7 @@ def t_INTEGER(t):
     return t
 
 # XXX Maybe I'll use [] for arrays to be less weird.
-literals = "(){},:"
+literals = "(){},?:"
 
 t_ignore = " \t\n\r"
 
@@ -94,15 +94,24 @@ def p_Key(p):
     p[0] = p[1]
 
 def p_ObjectTypeInner(p):
-    """ObjectTypeInner : ObjectTypeInner ',' Key ':' JSType
-    | Key ':' JSType"""
+    """ObjectTypeInner : ObjectTypeInner ',' Key MaybeOptional JSType
+    | Key MaybeOptional JSType"""
     if len(p) == 6:
         tt = p[1]
-        tt.append(JSPropertyType(p[3], p[5]))
+        tt.append(JSPropertyType(p[3], p[5], p[4]))
         p[0] = tt
     else:
         assert len(p) == 4
-        p[0] = [JSPropertyType(p[1], p[3])]
+        p[0] = [JSPropertyType(p[1], p[3], p[2])]
+
+def p_MaybeOptional(p):
+    """MaybeOptional : '?' ':'
+    | ':'"""
+    if len(p) == 3:
+        p[0] = True
+    else:
+        assert len(p) == 2
+        p[0] = False
 
 # XXX Change this to look like an actual JS array?
 # XXX The newest version only supports a single type, so we can't really

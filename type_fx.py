@@ -9,9 +9,10 @@ class JSType:
         return "JSTYPE"
 
 class JSPropertyType:
-    def __init__(self, n, t, opt = False):
+    def __init__(self, n, t, opt):
         # XXX Need to implement support for integer names.
         assert isinstance(n, str)
+        assert isinstance(opt, bool)
         self.name = n
         self.type = t
         self.optional = opt
