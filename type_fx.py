@@ -8,6 +8,45 @@ class JSType:
     def __str__(self):
         return "JSTYPE"
 
+
+class AnyType(JSType):
+    def __init__(self):
+        return
+
+    def __eq__(self, o):
+        return self.__class__ == o.__class__
+
+    def __str__(self):
+        return "Any"
+
+    def __lt__(self, o):
+        return self.classOrd() < o.classOrd()
+
+    def classOrd(self):
+        return 0
+
+
+class PrimitiveType(JSType):
+    def __init__(self, name):
+        self.name = name
+
+    def __eq__(self, o):
+        if self.__class__ != o.__class__:
+            return False
+        return self.name == o.name
+
+    def __str__(self):
+        return self.name
+
+    def __lt__(self, o):
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
+        return self.name < o.name
+
+    def classOrd(self):
+        return 1
+
+
 class JSPropertyType:
     def __init__(self, n, t, opt):
         # XXX Need to implement support for integer names.
@@ -20,6 +59,7 @@ class JSPropertyType:
     def __eq__(self, o):
         return (self.name == o.name and self.type == o.type and
                 self.optional == o.optional)
+
 
 class ObjectType(JSType):
     def __init__(self, tt):
@@ -53,7 +93,7 @@ class ObjectType(JSType):
         return str(self) < str(o)
 
     def classOrd(self):
-        return 1
+        return 2
 
 
 class ArrayType(JSType):
@@ -79,7 +119,7 @@ class ArrayType(JSType):
         return self.elementType < o.elementType
 
     def classOrd(self):
-        return 2
+        return 3
 
 
 class UnionType(JSType):
@@ -96,7 +136,7 @@ class UnionType(JSType):
         return " | ".join(map(lambda t: str(t), self.types))
 
     def classOrd(self):
-        return 3
+        return 4
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():

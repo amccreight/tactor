@@ -7,7 +7,7 @@
 # Parsing the prototype JSIPCValue type output.
 
 from ply import lex, yacc
-from type_fx import JSPropertyType, ObjectType, ArrayType, UnionType
+from type_fx import AnyType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
 
 
 class ParseError(Exception):
@@ -65,16 +65,24 @@ parserDebug = False
 lex.lex(debug=parserDebug)
 
 def p_JSType(p):
-    """JSType : UNDEFINED
-    | STRING
-    | NULL
-    | BOOL
-    | NUMBER
-    | ANY
+    """JSType : PrimitiveType
+    | AnyType
     | ObjectType
     | ArrayType
     | Union"""
     p[0] = p[1]
+
+def p_PrimitiveType(p):
+    """PrimitiveType : UNDEFINED
+    | STRING
+    | NULL
+    | BOOL
+    | NUMBER"""
+    p[0] = PrimitiveType(p[1])
+
+def p_AnyType(p):
+    """AnyType : ANY"""
+    p[0] = AnyType()
 
 def p_ObjectType(p):
     """ObjectType : '{' ObjectTypeInner '}'
