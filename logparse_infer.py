@@ -112,11 +112,11 @@ def lookAtActors(args):
     print("=========================")
     print()
 
-    for t, c in fallbackWith.items():
-        print(f"Fallback with {t}; count: {c}")
-    # I disabled the warning for ESClass::Other because it was spammy in one
-    # log I looked at, so this is so I don't forget.
-    print(f"Fallback with ESClass::Other; count: ???")
+    if len(fallbackWith) > 0:
+        for t, c in fallbackWith.items():
+            print(f"Fallback with {t}; count: {c}")
+    else:
+        print("Found no instances of AnyToJSIPCValue fallback.")
     print()
     print(f"Failed to serialize count: {failedSerialize}")
 
