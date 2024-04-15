@@ -27,7 +27,7 @@ import re
 import sys
 import json
 from type_parse import parseType, ParseError
-
+from type_fx import tryUnionWith
 
 typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$')
 # This can also be CONTENTS instead of TYPE, and then it will have the result
@@ -91,11 +91,22 @@ def lookAtActors(args):
             ttl = list(tt)
             if len(ttl) == 1:
                 print(f"  {m} {ttl[0]}")
+                continue
             else:
                 print(f"  {m}")
                 tts = [str(t) for t in ttl]
                 for t in sorted(tts):
                     print(f"    {t}")
+            tCombined = None
+            for t in ttl:
+                if tCombined is None:
+                    tCombined = t
+                    continue
+                tCombined = tryUnionWith(tCombined, t)
+                if tCombined is None:
+                    break
+            if tCombined is not None:
+                print(f"  COMBINED: {tCombined}")
         print()
 
     print("=========================")
