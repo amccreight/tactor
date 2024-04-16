@@ -27,7 +27,6 @@ reserved = set(
         "number",
         "any",
         "Array",
-        "Union",
     )
 )
 
@@ -52,8 +51,10 @@ def t_INTEGER(t):
     t.value = int(t.value)
     return t
 
-# XXX Maybe I'll use [] for arrays to be less weird.
-literals = "(){},?:<>"
+literals = "(){},?:<>|"
+
+precedence = [['left', '|']]
+
 
 t_ignore = " \t\n\r"
 
@@ -69,13 +70,18 @@ def p_JSType(p):
     | AnyType
     | ObjectType
     | ArrayType
-    | Union
+    | JSType '|' JSType
     | '(' JSType ')'"""
     if len(p) == 2:
         p[0] = p[1]
     else:
         assert len(p) == 4
-        p[0] = p[2]
+        if p[1] == '(':
+            p[0] = p[2]
+        else:
+            tt = p[1].types if isinstance(p[1], UnionType) else [p[1]]
+            tt.append(p[3])
+            p[0] = UnionType(tt)
 
 def p_PrimitiveType(p):
     """PrimitiveType : UNDEFINED
@@ -137,30 +143,6 @@ def p_ArrayType(p):
     else:
         assert len(p) == 4
         p[0] = ArrayType(None)
-
-# XXX I shouldn't represent both this and arrays
-# as a Python array.
-def p_Union(p):
-    """Union : UNION '(' UnionInner ')'
-    | UNION '(' UnionInner ',' ')'
-    | UNION '(' ')' """
-    if len(p) == 5:
-        p[0] = UnionType(p[3])
-    elif len(p) == 6:
-        p[0] = UnionType(p[3])
-    else:
-        assert len(p) == 4
-        p[0] = UnionType([])
-
-def p_UnionInner(p):
-    """UnionInner : JSType
-    | UnionInner ',' JSType"""
-    if len(p) == 2:
-        p[0] = [p[1]]
-    else:
-        assert len(p) == 4
-        p[1].append(p[3])
-        p[0] = p[1]
 
 def p_error(p):
     raise ParseError(p.lexpos, f'Syntax error at {p.value}')
