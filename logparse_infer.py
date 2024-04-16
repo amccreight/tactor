@@ -84,9 +84,11 @@ def lookAtActors(args):
             print(f'  while parsing: {typeRaw}', file=sys.stderr)
             return
 
-    for a, mm in actors.items():
+    for a in sorted(list(actors.keys())):
+        mm = actors[a]
         print(a)
-        for m, tt in mm.items():
+        for m in sorted(list(mm.keys())):
+            tt = mm[m]
             ttl = list(tt)
             if len(ttl) == 1:
                 print(f"  {m} {ttl[0]}")
