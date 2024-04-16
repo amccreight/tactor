@@ -93,7 +93,7 @@ class ObjectType(JSType):
         for p in self.types:
             opt = "?" if p.optional else ""
             l.append(f"{str(p.name)}{opt}: {p.type}")
-        return "{" + ", ".join(l) + "}"
+        return "{" + "; ".join(l) + "}"
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():

@@ -51,7 +51,7 @@ def t_INTEGER(t):
     t.value = int(t.value)
     return t
 
-literals = "(){},?:<>|"
+literals = "(){},?:;<>|"
 
 precedence = [['left', '|']]
 
@@ -97,7 +97,7 @@ def p_AnyType(p):
 
 def p_ObjectType(p):
     """ObjectType : '{' ObjectTypeInner '}'
-    | '{' ObjectTypeInner ',' '}'
+    | '{' ObjectTypeInner FieldSeparator '}'
     | '{' '}'"""
     if len(p) == 4:
         p[0] = ObjectType(p[2])
@@ -106,6 +106,11 @@ def p_ObjectType(p):
     else:
         p[0] = ObjectType([])
 
+def p_FieldSeparator(p):
+    """FieldSeparator : ','
+    | ';'"""
+    p[0] = p[1]
+
 # This will definitely cause problems if we have a keyword as a key.
 def p_Key(p):
     """Key : ID
@@ -113,7 +118,7 @@ def p_Key(p):
     p[0] = p[1]
 
 def p_ObjectTypeInner(p):
-    """ObjectTypeInner : ObjectTypeInner ',' Key MaybeOptional JSType
+    """ObjectTypeInner : ObjectTypeInner FieldSeparator Key MaybeOptional JSType
     | Key MaybeOptional JSType"""
     if len(p) == 6:
         tt = p[1]
