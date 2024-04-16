@@ -120,7 +120,7 @@ class ArrayType(JSType):
             elementString = str(self.elementType)
         else:
             elementString = ""
-        return f"Array({elementString})"
+        return f"Array<{elementString}>"
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():

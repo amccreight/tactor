@@ -26,7 +26,7 @@ reserved = set(
         "boolean",
         "number",
         "any",
-        "ArrayType",
+        "Array",
         "Union",
     )
 )
@@ -53,7 +53,7 @@ def t_INTEGER(t):
     return t
 
 # XXX Maybe I'll use [] for arrays to be less weird.
-literals = "(){},?:"
+literals = "(){},?:<>"
 
 t_ignore = " \t\n\r"
 
@@ -69,8 +69,13 @@ def p_JSType(p):
     | AnyType
     | ObjectType
     | ArrayType
-    | Union"""
-    p[0] = p[1]
+    | Union
+    | '(' JSType ')'"""
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        assert len(p) == 4
+        p[0] = p[2]
 
 def p_PrimitiveType(p):
     """PrimitiveType : UNDEFINED
@@ -125,8 +130,8 @@ def p_MaybeOptional(p):
 # XXX The newest version only supports a single type, so we can't really
 # implement it as a Python array.
 def p_ArrayType(p):
-    """ArrayType : ARRAYTYPE '(' JSType ')'
-    | ARRAYTYPE '(' ')'"""
+    """ArrayType : ARRAY '<' JSType '>'
+    | ARRAY '<' '>'"""
     if len(p) == 5:
         p[0] = ArrayType(p[3])
     else:
