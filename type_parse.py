@@ -23,9 +23,9 @@ reserved = set(
         "undefined",
         "string",
         "null",
-        "bool",
+        "boolean",
         "number",
-        "Any",
+        "any",
         "ArrayType",
         "Union",
     )
@@ -76,7 +76,7 @@ def p_PrimitiveType(p):
     """PrimitiveType : UNDEFINED
     | STRING
     | NULL
-    | BOOL
+    | BOOLEAN
     | NUMBER"""
     p[0] = PrimitiveType(p[1])
 

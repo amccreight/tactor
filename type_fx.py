@@ -19,7 +19,7 @@ class AnyType(JSType):
         return self.__class__ == o.__class__
 
     def __str__(self):
-        return "Any"
+        return "any"
 
     def __lt__(self, o):
         return self.classOrd() < o.classOrd()
@@ -28,7 +28,7 @@ class AnyType(JSType):
         return 0
 
 
-primRegexp = re.compile("undefined|string|null|bool|number")
+primRegexp = re.compile("undefined|string|null|boolean|number")
 
 class PrimitiveType(JSType):
     def __init__(self, name):
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     # XXX Change these to actually check the types.
     t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False),
                      JSPropertyType("y", PrimitiveType("number"), False)])
-    t2 = ObjectType([JSPropertyType("x", PrimitiveType("bool"), False)])
+    t2 = ObjectType([JSPropertyType("x", PrimitiveType("boolean"), False)])
     print(tryUnionWith(t1, t2))
 
     t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False)])
