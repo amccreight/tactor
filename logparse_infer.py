@@ -34,7 +34,7 @@ typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$
 # of toSource(), but I'm not logging that right now so don't worry about it.
 
 # Ideally, we'd report the file and test these warnings happened during.
-fallbackWarningPatt = re.compile('WARNING: AnyToJSIPCValue fallback with (.+): file')
+fallbackWarningPatt = re.compile('WARNING: AnyToJSIPCValue fallback for (.+): file')
 failedToSerializeWarningPatt = re.compile('WARNING: Failed to serialize')
 
 
@@ -83,7 +83,6 @@ def lookAtActors(args):
             print(p, file=sys.stderr)
             print(f'  while parsing: {typeRaw}', file=sys.stderr)
             return
-
 
     for a, mm in actors.items():
         print(a)
