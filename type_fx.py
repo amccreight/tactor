@@ -28,7 +28,15 @@ class AnyType(JSType):
         return 0
 
 
-primRegexp = re.compile("undefined|string|null|boolean|number")
+primitiveTypes = [
+    "undefined",
+    "string",
+    "null",
+    "boolean",
+    "number",
+    "nsIPrincipal"
+]
+primRegexp = re.compile("|".join(primitiveTypes))
 
 class PrimitiveType(JSType):
     def __init__(self, name):

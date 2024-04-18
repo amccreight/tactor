@@ -25,6 +25,7 @@ reserved = set(
         "null",
         "boolean",
         "number",
+        "nsIPrincipal",
         "any",
         "Array",
     )
@@ -88,7 +89,8 @@ def p_PrimitiveType(p):
     | STRING
     | NULL
     | BOOLEAN
-    | NUMBER"""
+    | NUMBER
+    | NSIPRINCIPAL"""
     p[0] = PrimitiveType(p[1])
 
 def p_AnyType(p):
