@@ -26,6 +26,7 @@ reserved = set(
         "boolean",
         "number",
         "nsIPrincipal",
+        "BrowsingContext",
         "any",
         "Array",
     )
@@ -90,7 +91,8 @@ def p_PrimitiveType(p):
     | NULL
     | BOOLEAN
     | NUMBER
-    | NSIPRINCIPAL"""
+    | NSIPRINCIPAL
+    | BROWSINGCONTEXT"""
     p[0] = PrimitiveType(p[1])
 
 def p_AnyType(p):

@@ -34,7 +34,8 @@ primitiveTypes = [
     "null",
     "boolean",
     "number",
-    "nsIPrincipal"
+    "nsIPrincipal",
+    "BrowsingContext",
 ]
 primRegexp = re.compile("|".join(primitiveTypes))
 
