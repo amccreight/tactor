@@ -61,6 +61,9 @@ class PrimitiveType(JSType):
         return 1
 
 
+# This should be the same as the regexp from t_ID in type_parse.py.
+identifierRe = re.compile("(?!\d)[\w$]+")
+
 class JSPropertyType:
     def __init__(self, n, t, opt):
         # XXX Need to implement support for integer names.
@@ -77,6 +80,13 @@ class JSPropertyType:
 
     def __lt__(self, o):
         return self.name < o.name
+
+    def nameStr(self):
+        m = identifierRe.fullmatch(self.name)
+        if m:
+            return self.name
+        unescaped = self.name.replace('"', '\\"')
+        return f'"{unescaped}"'
 
 
 class ObjectType(JSType):
@@ -101,7 +111,7 @@ class ObjectType(JSType):
         l = []
         for p in self.types:
             opt = "?" if p.optional else ""
-            l.append(f"{str(p.name)}{opt}: {p.type}")
+            l.append(f"{str(p.nameStr())}{opt}: {p.type}")
         return "{" + "; ".join(l) + "}"
 
     def __lt__(self, o):

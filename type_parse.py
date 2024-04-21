@@ -35,14 +35,13 @@ reserved = set(
 tokens = [
     "ID",
     "INTEGER",
+    "STRING_SINGLE",
+    "STRING_DOUBLE",
 ] + [r.upper() for r in reserved]
 
-# TODO: object properties can be any valid string, including things
-# with spaces or reserved words, so I should change the logging to wrap
-# them in quotes. I'll also have to deal with quote escaping, like I did
-# in my JS parser.
+# The (?!\d) means that the first character can't be a number.
 def t_ID(t):
-    r"[a-zA-Z_][a-zA-Z0-9_-]*"
+    r"(?!\d)[\w$]+"
     if t.value in reserved:
         t.type = t.value.upper()
     return t
@@ -51,6 +50,22 @@ def t_ID(t):
 def t_INTEGER(t):
     r"\d+"
     t.value = int(t.value)
+    return t
+
+# XXX These probably need to escape everything, but I need to keep
+# this in sync with JSActorMessageType::ObjectType::ToString().
+# If I do that, it'll look more like
+# import codecs
+# t.value = codecs.decode(t.value[1:-1], "unicode-escape")
+
+def t_STRING_SINGLE(t):
+    r"'(?:[^'\\\n]|\\.)*'"
+    t.value = t.value[1:-1].replace("\\'", "'")
+    return t
+
+def t_STRING_DOUBLE(t):
+    r'"(?:[^"\\\n]|\\.)*"'
+    t.value = t.value[1:-1].replace('\\"', '"')
     return t
 
 literals = "(){},?:;<>|"
@@ -115,15 +130,17 @@ def p_FieldSeparator(p):
     | ';'"""
     p[0] = p[1]
 
-# This will definitely cause problems if we have a keyword as a key.
-def p_Key(p):
-    """Key : ID
-    | INTEGER"""
+# This will definitely cause problems if we have a keyword as a property name.
+def p_PropertyName(p):
+    """PropertyName : ID
+    | INTEGER
+    | STRING_SINGLE
+    | STRING_DOUBLE"""
     p[0] = p[1]
 
 def p_ObjectTypeInner(p):
-    """ObjectTypeInner : ObjectTypeInner FieldSeparator Key MaybeOptional JSType
-    | Key MaybeOptional JSType"""
+    """ObjectTypeInner : ObjectTypeInner FieldSeparator PropertyName MaybeOptional JSType
+    | PropertyName MaybeOptional JSType"""
     if len(p) == 6:
         tt = p[1]
         tt.append(JSPropertyType(p[3], p[5], p[4]))
@@ -160,3 +177,21 @@ yacc.yacc(write_tables=False)
 
 def parseType(s):
     return yacc.parse(s, debug=parserDebug)
+
+def parseAndCheck(s1):
+    s2 = parseType(s1)
+    print(f"{s1} --> {s2}")
+    assert s1 == str(s2)
+
+def parseAndCheckFail(s):
+    try:
+        parseType(s)
+        assert False
+    except ParseError as p:
+        return
+
+if __name__ == "__main__":
+    parseAndCheck("{whatever_$123: string}")
+    parseAndCheckFail("{1whatever: string}")
+    parseAndCheck("{\"https://*.example.com/*\": string}")
+    parseAndCheck('{"\\t": string}')
