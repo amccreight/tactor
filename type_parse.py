@@ -47,10 +47,14 @@ def t_ID(t):
         t.type = t.value.upper()
     return t
 
-# This is only positive integers, which we need for array properties.
 def t_INTEGER(t):
-    r"\d+"
-    t.value = int(t.value)
+    r"-?\d+"
+    i = int(t.value)
+    if i < -2147483648:
+        raise ParseError(t.lexpos, f"Integer {i} is too small")
+    if i > 2147483647:
+        raise ParseError(t.lexpos, f"Integer {i} is too large")
+    t.value = i
     return t
 
 # XXX These probably need to escape everything, but I need to keep

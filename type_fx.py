@@ -73,7 +73,7 @@ identifierRe = re.compile("(?!\d)[\w$]+")
 class JSPropertyType:
     def __init__(self, n, t, opt):
         # XXX Need to implement support for integer names.
-        assert isinstance(n, str)
+        assert isinstance(n, str) or isinstance(n, int)
         assert isinstance(t, JSType)
         assert isinstance(opt, bool)
         self.name = n
@@ -85,15 +85,27 @@ class JSPropertyType:
                 self.optional == o.optional)
 
     def __lt__(self, o):
+        if isinstance(self.name, str):
+            if isinstance(o.name, str):
+                return self.name < o.name
+            else:
+                return True
+        assert isinstance(self.name, int)
+        if isinstance(o.name, str):
+            return False
         return self.name < o.name
 
     def nameStr(self):
+        if isinstance(self.name, int):
+            return str(self.name)
         m = identifierRe.fullmatch(self.name)
         if m:
             return self.name
         return self.jsonNameStr()
 
     def jsonNameStr(self):
+        if isinstance(self.name, int):
+            return str(self.name)
         unescaped = self.name.replace('"', '\\"')
         return f'"{unescaped}"'
 
@@ -108,8 +120,8 @@ class ObjectType(JSType):
         lastName = None
         for p in tt:
             if lastName:
-                assert p.name > lastName
-            lastName = p.name
+                assert p > lastName
+            lastName = p
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
