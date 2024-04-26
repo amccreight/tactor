@@ -8,6 +8,7 @@
 
 from ply import lex, yacc
 from type_fx import AnyType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
+import unittest
 
 
 class ParseError(Exception):
@@ -179,25 +180,87 @@ def p_error(p):
 
 yacc.yacc(write_tables=False)
 
-def parseType(s):
-    return yacc.parse(s, debug=parserDebug)
-
-def parseAndCheck(s1):
-    s2 = parseType(s1)
-    print(f"{s1} --> {s2}")
-    assert s1 == str(s2)
-
-def parseAndCheckFail(s):
-    try:
-        parseType(s)
-        assert False
-    except ParseError as p:
-        return
-
-if __name__ == "__main__":
+def basicTest():
+    def parseType(s):
+        return yacc.parse(s, debug=parserDebug)
+    def parseAndCheck(s1):
+        s2 = parseType(s1)
+        print(f"{s1} --> {s2}")
+        assert s1 == str(s2)
+    def parseAndCheckFail(s):
+        try:
+            parseType(s)
+            assert False
+        except ParseError as p:
+            return
     parseAndCheck("{whatever_$123: string}")
     parseAndCheckFail("{1whatever: string}")
     parseAndCheck("{\"https://*.example.com/*\": string}")
     parseAndCheck('{"\\t": string}')
     parseAndCheck('Array<never>')
     parseAndCheckFail('Array<>')
+
+
+class TestPrinting(unittest.TestCase):
+    def check(self, s, json):
+        t = yacc.parse(s, debug=parserDebug)
+        self.assertEqual(s, str(t))
+        self.assertEqual(t.jsonStr(), json)
+
+    def checkFail(self, s, error):
+        try:
+            yacc.parse(s, debug=parserDebug)
+            assert False
+        except ParseError as p:
+            self.assertIn(error, str(p))
+
+    def test_any(self):
+        self.check("any", '"any"')
+
+    def test_primitive(self):
+        self.check("undefined", '["primitive", "undefined"]')
+        self.check("string", '["primitive", "string"]')
+        self.check("undefined", '["primitive", "undefined"]')
+        self.check("string", '["primitive", "string"]')
+        self.check("null", '["primitive", "null"]')
+        self.check("boolean", '["primitive", "boolean"]')
+        self.check("number", '["primitive", "number"]')
+        self.check("nsIPrincipal", '["primitive", "nsIPrincipal"]')
+        self.check("BrowsingContext", '["primitive", "BrowsingContext"]')
+
+    def test_array(self):
+        self.check("Array<any>", '["array", "any"]')
+        self.check("Array<never>", '["array"]')
+        self.check("Array<nsIPrincipal>", '["array", ["primitive", "nsIPrincipal"]]')
+        self.check("Array<Array<any>>", '["array", ["array", "any"]]')
+        self.check("Array<Array<never>>", '["array", ["array"]]')
+
+    def test_union(self):
+        self.check("any | any", '["union", "any", "any"]')
+        # Do this in both orders to check that we aren't sorting.
+        self.check("Array<never> | Array<any>", '["union", ["array"], ["array", "any"]]')
+        self.check("Array<any> | Array<never>", '["union", ["array", "any"], ["array"]]')
+        self.check("any | string | undefined",
+                   '["union", ["union", "any", ["primitive", "string"]], ["primitive", "undefined"]]')
+
+    def test_object(self):
+        self.check("{}", '["object"]')
+        self.check("{bar: Array<any>; foo: string}",
+                   '["object", ["bar", ["array", "any"]], ["foo", ["primitive", "string"]]]')
+        self.check("{8: Array<any>; 12: string}",
+                   '["object", [8, ["array", "any"]], [12, ["primitive", "string"]]]')
+        self.check("{foo: Array<any>; 12: string}",
+                   '["object", ["foo", ["array", "any"]], [12, ["primitive", "string"]]]')
+        self.check("{-2147483648: any; 2147483647: any}",
+                   '["object", [-2147483648, "any"], [2147483647, "any"]]')
+        self.check("{x?: any; y: string}",
+                   '["object", ["x", "any", true], ["y", ["primitive", "string"]]]')
+
+        self.checkFail("{-2147483649: any}", "Integer -2147483649 is too small")
+        self.checkFail("{2147483648: any}", "Integer 2147483648 is too large")
+
+
+if __name__ == "__main__":
+    basicTest()
+
+    unittest.main()

@@ -195,14 +195,13 @@ def p_error(p):
 
 yacc.yacc(write_tables=False)
 
-def parseJS(s):
-    return yacc.parse(s, debug=parserDebug)
 
-def simpleParseAndLog(s):
-    print(jsToString(parseJS(s)))
-    print()
-
-if __name__ == "__main__":
+def testTypeScriptParsing():
+    def parseTS(s):
+        return yacc.parse(s, debug=parserDebug)
+    def simpleParseAndLog(s):
+        print(jsToString(parseTS(s)))
+        print()
     # Some basic parsing tests.
     simpleParseAndLog('Infinity')
     simpleParseAndLog("{re:/blah blah\(\/ whatever/}")
@@ -228,3 +227,7 @@ if __name__ == "__main__":
     simpleParseAndLog(s)
     s = '{type:"DISCOVERY_STREAM_LOADED_CONTENT", data:{source:"CARDGRID", tiles:[{id:1234567890, pos:0}]}, meta:{from:"ActivityStream:Content", to:"ActivityStream:Main"}}'
     simpleParseAndLog(s)
+
+
+if __name__ == "__main__":
+    testTypeScriptParsing()
