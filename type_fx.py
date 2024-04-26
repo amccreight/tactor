@@ -22,7 +22,7 @@ class AnyType(JSType):
         return "any"
 
     def jsonStr(self):
-        return "any"
+        return '"any"'
 
     def __lt__(self, o):
         return self.classOrd() < o.classOrd()
@@ -168,6 +168,10 @@ class ArrayType(JSType):
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
             return self.classOrd() < o.classOrd()
+        if self.elementType is None:
+            return o.elementType is not None
+        if o.elementType is None:
+            return False
         return self.elementType < o.elementType
 
     def classOrd(self):
