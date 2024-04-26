@@ -292,6 +292,58 @@ def objectAbsorb(t1, t2):
     t1.types = stringFieldTypes
 
 
+def unifyMessageTypes(actors, log=False):
+    newActors = {}
+
+    if log:
+        print("Logging information about type combining")
+        print()
+
+    for a in sorted(list(actors.keys())):
+        assert a not in newActors
+        newMessages = {}
+        newActors[a] = newMessages
+        loggedCurrentActor = False
+        messages = actors[a]
+        for m in sorted(list(messages.keys())):
+            types = list(messages[m])
+            if len(types) == 1:
+                newMessages[m] = types[0]
+                # No need to log if we're not doing anything.
+                continue
+            if log:
+                if not loggedCurrentActor:
+                    loggedCurrentActor = True
+                    print(a)
+                print(f"  {m}")
+                for t in sorted([str(t) for t in types]):
+                    print(f"    {t}")
+            tCombined = None
+            for t in types:
+                if tCombined is None:
+                    tCombined = t
+                    continue
+                tCombined = unionWith(tCombined, t)
+                assert tCombined is not None
+            newMessages[m] = tCombined
+            if log:
+                print(f"  COMBINED: {tCombined}")
+        if log and loggedCurrentActor:
+            print()
+
+    return newActors
+
+
+# Print out the types of actor messages, using the default TypeScript-like syntax.
+def printMessageTypes(actors):
+    for a in sorted(list(actors.keys())):
+        mm = actors[a]
+        print(a)
+        for m in sorted(list(mm.keys())):
+            print(f"  {m} {mm[m]}")
+        print()
+
+
 if __name__ == "__main__":
     # XXX Change these to actually check the types.
     t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False),
