@@ -181,7 +181,7 @@ class ArrayType(JSType):
 class UnionType(JSType):
     def __init__(self, tt):
         assert len(tt) > 1
-        self.types = sorted(tt)
+        self.types = tt
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
