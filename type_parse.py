@@ -180,9 +180,10 @@ def p_error(p):
 
 yacc.yacc(write_tables=False)
 
+def parseType(s):
+    return yacc.parse(s, debug=parserDebug)
+
 def basicTest():
-    def parseType(s):
-        return yacc.parse(s, debug=parserDebug)
     def parseAndCheck(s1):
         s2 = parseType(s1)
         print(f"{s1} --> {s2}")
@@ -203,13 +204,13 @@ def basicTest():
 
 class TestPrinting(unittest.TestCase):
     def check(self, s, json):
-        t = yacc.parse(s, debug=parserDebug)
+        t = parseType(s)
         self.assertEqual(s, str(t))
         self.assertEqual(t.jsonStr(), json)
 
     def checkFail(self, s, error):
         try:
-            yacc.parse(s, debug=parserDebug)
+            parseType(s)
             assert False
         except ParseError as p:
             self.assertIn(error, str(p))
