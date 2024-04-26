@@ -27,7 +27,7 @@ import re
 import sys
 import json
 from type_parse import parseType, ParseError
-from type_fx import unifyMessageTypes, printMessageTypes
+from type_fx import unifyMessageTypes, printMessageTypes, printJSONMessageTypes
 
 typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$')
 # This can also be CONTENTS instead of TYPE, and then it will have the result
@@ -86,13 +86,15 @@ def lookAtActors(args):
             return
 
     # Union together the types from different instances of each message.
-    actors = unifyMessageTypes(actors, log=True)
+    actors = unifyMessageTypes(actors, log=not args.json)
+
+    if args.json:
+        printJSONMessageTypes(actors)
+        return
 
     print("=========================")
     print()
-
     printMessageTypes(actors)
-
     print("=========================")
     print()
 
@@ -105,6 +107,9 @@ def lookAtActors(args):
     print(f"Failed to serialize count: {failedSerialize}")
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--json",
+                    help="Print output as JSON.",
+                    action="store_true")
 args = parser.parse_args()
 
 lookAtActors(args)

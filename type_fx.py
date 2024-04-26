@@ -21,6 +21,9 @@ class AnyType(JSType):
     def __str__(self):
         return "any"
 
+    def jsonStr(self):
+        return "any"
+
     def __lt__(self, o):
         return self.classOrd() < o.classOrd()
 
@@ -51,6 +54,9 @@ class PrimitiveType(JSType):
 
     def __str__(self):
         return self.name
+
+    def jsonStr(self):
+        return f'["primitive", "{self.name}"]'
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -85,6 +91,9 @@ class JSPropertyType:
         m = identifierRe.fullmatch(self.name)
         if m:
             return self.name
+        return self.jsonNameStr()
+
+    def jsonNameStr(self):
         unescaped = self.name.replace('"', '\\"')
         return f'"{unescaped}"'
 
@@ -112,7 +121,16 @@ class ObjectType(JSType):
         for p in self.types:
             opt = "?" if p.optional else ""
             l.append(f"{str(p.nameStr())}{opt}: {p.type}")
-        return "{" + "; ".join(l) + "}"
+        return f'{{{"; ".join(l)}}}'
+
+    def jsonStr(self):
+        if len(self.types) == 0:
+            return '["object"]'
+        l = []
+        for p in self.types:
+            opt = ", true" if p.optional else ""
+            l.append(f'[{p.jsonNameStr()}, {p.type.jsonStr()}{opt}]')
+        return f'["object", {", ".join(l)}]'
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -141,6 +159,12 @@ class ArrayType(JSType):
             elementString = "never"
         return f"Array<{elementString}>"
 
+    def jsonStr(self):
+        if self.elementType:
+            return f'["array", {self.elementType.jsonStr()}]'
+        else:
+            return f'["array"]'
+
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
             return self.classOrd() < o.classOrd()
@@ -162,6 +186,14 @@ class UnionType(JSType):
 
     def __str__(self):
         return " | ".join(map(lambda t: str(t), self.types))
+
+    def jsonStr(self):
+        # ["union", t1, t2]
+        assert len(self.types) >= 2
+        s = self.types[0].jsonStr()
+        for t in self.types[1:]:
+            s = f'["union", {s}, {t.jsonStr()}]'
+        return s
 
     def classOrd(self):
         return 4
@@ -342,6 +374,20 @@ def printMessageTypes(actors):
         for m in sorted(list(mm.keys())):
             print(f"  {m} {mm[m]}")
         print()
+
+
+# Print out the types of actor messages, using the JSON syntax.
+def printJSONMessageTypes(actors):
+    print("{")
+    for a in sorted(list(actors.keys())):
+        mm = actors[a]
+        print(f'  "{a}": {{')
+        for m in sorted(list(mm.keys())):
+            assert "\"" not in m
+            print(f'    "{m}": {mm[m].jsonStr()},')
+        print("  }")
+    print("}")
+
 
 
 if __name__ == "__main__":
