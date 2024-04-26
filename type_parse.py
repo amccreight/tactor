@@ -28,6 +28,7 @@ reserved = set(
         "nsIPrincipal",
         "BrowsingContext",
         "any",
+        "never",
         "Array",
     )
 )
@@ -163,12 +164,11 @@ def p_MaybeOptional(p):
 # implement it as a Python array.
 def p_ArrayType(p):
     """ArrayType : ARRAY '<' JSType '>'
-    | ARRAY '<' '>'"""
-    if len(p) == 5:
-        p[0] = ArrayType(p[3])
-    else:
-        assert len(p) == 4
+    | ARRAY '<' NEVER '>'"""
+    if p[3] == "never":
         p[0] = ArrayType(None)
+    else:
+        p[0] = ArrayType(p[3])
 
 def p_error(p):
     raise ParseError(p.lexpos, f'Syntax error at {p.value}')
@@ -195,3 +195,5 @@ if __name__ == "__main__":
     parseAndCheckFail("{1whatever: string}")
     parseAndCheck("{\"https://*.example.com/*\": string}")
     parseAndCheck('{"\\t": string}')
+    parseAndCheck('Array<never>')
+    parseAndCheckFail('Array<>')

@@ -138,7 +138,7 @@ class ArrayType(JSType):
         if self.elementType:
             elementString = str(self.elementType)
         else:
-            elementString = ""
+            elementString = "never"
         return f"Array<{elementString}>"
 
     def __lt__(self, o):
@@ -361,3 +361,5 @@ if __name__ == "__main__":
     t2 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
                                                     PrimitiveType("string")]), False)])
     print(tryUnionWith(t1, t2))
+
+    assert str(ArrayType(None)) == "Array<never>"
