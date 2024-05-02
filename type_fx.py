@@ -401,7 +401,7 @@ def printJSONMessageTypes(actors):
         for m in sorted(list(mm.keys())):
             assert "\"" not in m
             print(f'    "{m}": {mm[m].jsonStr()},')
-        print("  }")
+        print("  },")
     print("}")
 
 
