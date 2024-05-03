@@ -5,6 +5,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import re
+import sys
+import unittest
+import json
 
 class JSType:
     def __str__(self):
@@ -391,37 +394,92 @@ def printMessageTypes(actors):
             print(f"  {m} {mm[m]}")
         print()
 
+def serializeJSON(actors, s):
+    s.addLine("{")
+    firstActor = True
+    for a in sorted(list(actors.keys())):
+        mm = actors[a]
+        if firstActor:
+            firstActor = False
+        else:
+            s.addLine(",")
+        s.addLine(f'  "{a}": {{')
+        firstMessage = True
+        for m in sorted(list(mm.keys())):
+            if firstMessage:
+                firstMessage = False
+            else:
+                s.addLine(",")
+            assert "\"" not in m
+            s.add(f'    "{m}": {mm[m].jsonStr()}')
+        s.addLine("")
+        s.add("  }")
+    s.addLine("")
+    s.addLine("}")
+
+class printSerializer:
+    def add(self, s):
+        sys.stdout.write(s)
+    def addLine(self, s):
+        print(s)
 
 # Print out the types of actor messages, using the JSON syntax.
 def printJSONMessageTypes(actors):
-    print("{")
-    for a in sorted(list(actors.keys())):
-        mm = actors[a]
-        print(f'  "{a}": {{')
-        for m in sorted(list(mm.keys())):
-            assert "\"" not in m
-            print(f'    "{m}": {mm[m].jsonStr()},')
-        print("  },")
-    print("}")
+    serializeJSON(actors, printSerializer())
 
+class stringSerializer:
+    def __init__(self):
+        self.string = ""
+    def add(self, s):
+        self.string += s
+    def addLine(self, s):
+        self.string += s + "\n"
 
+def stringJSONMessageTypes(actors):
+    s = stringSerializer()
+    serializeJSON(actors, s)
+    return s.string
+
+class TestUnion(unittest.TestCase):
+    def test_basic(self):
+        t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False),
+                         JSPropertyType("y", PrimitiveType("number"), False)])
+        t2 = ObjectType([JSPropertyType("x", PrimitiveType("boolean"), False)])
+        self.assertEqual(str(tryUnionWith(t1, t2)), "{x: undefined | boolean; y?: number}")
+
+        t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False)])
+        t2 = ObjectType([JSPropertyType("a", PrimitiveType("number"), False),
+                         JSPropertyType("x", AnyType(), False)])
+        self.assertEqual(str(tryUnionWith(t1, t2)), "{a?: number; x: any}")
+
+        t1 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
+                                                        PrimitiveType("string")]), False)])
+        t2 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
+                                                        PrimitiveType("string")]), False)])
+        self.assertEqual(str(tryUnionWith(t1, t2)), "{x: null | string}")
+
+        self.assertEqual(str(ArrayType(None)), "Array<never>")
+
+class TestActorJSON(unittest.TestCase):
+    def test_valid(self):
+        # Test that the actor and message stuff produces valid JSON.
+        a0 = {}
+        self.assertEquals(json.loads(stringJSONMessageTypes(a0)), {})
+
+        a10 = {"a": {}}
+        self.assertEquals(json.loads(stringJSONMessageTypes(a10)), {'a': {}})
+
+        a1 = {"a": {"m": PrimitiveType("undefined")}}
+        self.assertEquals(json.loads(stringJSONMessageTypes(a1)),
+                          {'a': {'m': ['primitive', 'undefined']}})
+
+        a2 = {"a": {"m1": AnyType(), "m2": AnyType()}}
+        self.assertEquals(json.loads(stringJSONMessageTypes(a2)),
+                          {'a': {'m1': 'any', 'm2': 'any'}})
+
+        a3 = {"a": {"m1": AnyType()}, "b": {"m2": AnyType()}}
+        self.assertEquals(json.loads(stringJSONMessageTypes(a3)),
+                          {'a': {'m1': 'any'}, 'b': {'m2': 'any'}})
 
 if __name__ == "__main__":
-    # XXX Change these to actually check the types.
-    t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False),
-                     JSPropertyType("y", PrimitiveType("number"), False)])
-    t2 = ObjectType([JSPropertyType("x", PrimitiveType("boolean"), False)])
-    print(tryUnionWith(t1, t2))
-
-    t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False)])
-    t2 = ObjectType([JSPropertyType("a", PrimitiveType("number"), False),
-                     JSPropertyType("x", AnyType(), False)])
-    print(tryUnionWith(t1, t2))
-
-    t1 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
-                                                    PrimitiveType("string")]), False)])
-    t2 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
-                                                    PrimitiveType("string")]), False)])
-    print(tryUnionWith(t1, t2))
-
-    assert str(ArrayType(None)) == "Array<never>"
+    unittest.main()

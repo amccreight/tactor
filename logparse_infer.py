@@ -25,7 +25,6 @@
 import argparse
 import re
 import sys
-import json
 from type_parse import parseType, ParseError
 from type_fx import unifyMessageTypes, printMessageTypes, printJSONMessageTypes
 
