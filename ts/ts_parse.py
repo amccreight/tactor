@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# Parsing the prototype JSIPCValue type output.
+# Parser for a subset of TypeScript.
 
 from ply import lex, yacc
 from ts import AnyType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType

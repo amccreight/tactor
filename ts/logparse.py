@@ -4,23 +4,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# Analyze JS actor logging.
+# Parsing JS actor type logging.
 
-# This is intended to work with the C++-based type logging from the
-# prototype version of bug 1885221 as of April 8, 2024.
+# This takes the output of Firefox modified to log a subset of TypeScript for
+# JS actor messages and tries to combine the types of different instances
+# of the same message into a single type, and then outputs the types
+# it found for all messages.
 #
-# Goals:
-# 1) Extract the types for individual messages and combine them
-#   together into types we can use as specifications for the messages/
-# 2) Figure out which cases for fallback serialization (represented
-#   by the "Any" type should be implemented. These will show up as
-#   "AnyToJSIPCValue fallback with" warnings.
-# 3) Tracking "Failed to serialize" warnings might be useful, too.
-
-# It would be nice to have information about which are the most frequent
-# messages with "Any" in the type. Also I could collect information about
-# the field names for "Any" types. eg if a field named lastModifiedDate
-# has Any, it is probably a Type.
+# It also tries to extract some information about the fallback serialization.
 
 import argparse
 import re
