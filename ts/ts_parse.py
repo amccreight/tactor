@@ -7,7 +7,7 @@
 # Parsing the prototype JSIPCValue type output.
 
 from ply import lex, yacc
-from type_fx import AnyType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
+from ts import AnyType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
 import unittest
 
 

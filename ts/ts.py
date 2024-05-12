@@ -70,7 +70,7 @@ class PrimitiveType(JSType):
         return 1
 
 
-# This should be the same as the regexp from t_ID in type_parse.py.
+# This should be the same as the regexp from t_ID in ts_parse.py.
 identifierRe = re.compile("(?!\d)[\w$]+")
 
 class JSPropertyType:

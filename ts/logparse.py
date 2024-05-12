@@ -25,8 +25,8 @@
 import argparse
 import re
 import sys
-from type_parse import parseType, ParseError
-from type_fx import unifyMessageTypes, printMessageTypes, printJSONMessageTypes
+from ts_parse import parseType, ParseError
+from ts import unifyMessageTypes, printMessageTypes, printJSONMessageTypes
 
 typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$')
 # This can also be CONTENTS instead of TYPE, and then it will have the result
