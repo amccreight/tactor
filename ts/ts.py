@@ -467,22 +467,22 @@ class TestActorJSON(unittest.TestCase):
     def test_valid(self):
         # Test that the actor and message stuff produces valid JSON.
         a0 = {}
-        self.assertEquals(json.loads(stringJSONMessageTypes(a0)), {})
+        self.assertEqual(json.loads(stringJSONMessageTypes(a0)), {})
 
         a10 = {"a": {}}
-        self.assertEquals(json.loads(stringJSONMessageTypes(a10)), {'a': {}})
+        self.assertEqual(json.loads(stringJSONMessageTypes(a10)), {'a': {}})
 
         a1 = {"a": {"m": PrimitiveType("undefined")}}
-        self.assertEquals(json.loads(stringJSONMessageTypes(a1)),
-                          {'a': {'m': ['primitive', 'undefined']}})
+        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
+                        {'a': {'m': 'undefined'}})
 
         a2 = {"a": {"m1": AnyType(), "m2": AnyType()}}
-        self.assertEquals(json.loads(stringJSONMessageTypes(a2)),
-                          {'a': {'m1': 'any', 'm2': 'any'}})
+        self.assertEqual(json.loads(stringJSONMessageTypes(a2)),
+                        {'a': {'m1': 'any', 'm2': 'any'}})
 
         a3 = {"a": {"m1": AnyType()}, "b": {"m2": AnyType()}}
-        self.assertEquals(json.loads(stringJSONMessageTypes(a3)),
-                          {'a': {'m1': 'any'}, 'b': {'m2': 'any'}})
+        self.assertEqual(json.loads(stringJSONMessageTypes(a3)),
+                        {'a': {'m1': 'any'}, 'b': {'m2': 'any'}})
 
 if __name__ == "__main__":
     unittest.main()

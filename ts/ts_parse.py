@@ -219,20 +219,20 @@ class TestPrinting(unittest.TestCase):
         self.check("any", '"any"')
 
     def test_primitive(self):
-        self.check("undefined", '["primitive", "undefined"]')
-        self.check("string", '["primitive", "string"]')
-        self.check("undefined", '["primitive", "undefined"]')
-        self.check("string", '["primitive", "string"]')
-        self.check("null", '["primitive", "null"]')
-        self.check("boolean", '["primitive", "boolean"]')
-        self.check("number", '["primitive", "number"]')
-        self.check("nsIPrincipal", '["primitive", "nsIPrincipal"]')
-        self.check("BrowsingContext", '["primitive", "BrowsingContext"]')
+        self.check("undefined", '"undefined"')
+        self.check("string", '"string"')
+        self.check("undefined", '"undefined"')
+        self.check("string", '"string"')
+        self.check("null", '"null"')
+        self.check("boolean", '"boolean"')
+        self.check("number", '"number"')
+        self.check("nsIPrincipal", '"nsIPrincipal"')
+        self.check("BrowsingContext", '"BrowsingContext"')
 
     def test_array(self):
         self.check("Array<any>", '["array", "any"]')
         self.check("Array<never>", '["array"]')
-        self.check("Array<nsIPrincipal>", '["array", ["primitive", "nsIPrincipal"]]')
+        self.check("Array<nsIPrincipal>", '["array", "nsIPrincipal"]')
         self.check("Array<Array<any>>", '["array", ["array", "any"]]')
         self.check("Array<Array<never>>", '["array", ["array"]]')
 
@@ -242,20 +242,20 @@ class TestPrinting(unittest.TestCase):
         self.check("Array<never> | Array<any>", '["union", ["array"], ["array", "any"]]')
         self.check("Array<any> | Array<never>", '["union", ["array", "any"], ["array"]]')
         self.check("any | string | undefined",
-                   '["union", ["union", "any", ["primitive", "string"]], ["primitive", "undefined"]]')
+                   '["union", ["union", "any", "string"], "undefined"]')
 
     def test_object(self):
         self.check("{}", '["object"]')
         self.check("{bar: Array<any>; foo: string}",
-                   '["object", ["bar", ["array", "any"]], ["foo", ["primitive", "string"]]]')
+                   '["object", ["bar", ["array", "any"]], ["foo", "string"]]')
         self.check("{8: Array<any>; 12: string}",
-                   '["object", [8, ["array", "any"]], [12, ["primitive", "string"]]]')
+                   '["object", [8, ["array", "any"]], [12, "string"]]')
         self.check("{foo: Array<any>; 12: string}",
-                   '["object", ["foo", ["array", "any"]], [12, ["primitive", "string"]]]')
+                   '["object", ["foo", ["array", "any"]], [12, "string"]]')
         self.check("{-2147483648: any; 2147483647: any}",
                    '["object", [-2147483648, "any"], [2147483647, "any"]]')
         self.check("{x?: any; y: string}",
-                   '["object", ["x", "any", true], ["y", ["primitive", "string"]]]')
+                   '["object", ["x", "any", true], ["y", "string"]]')
 
         self.checkFail("{-2147483649: any}", "Integer -2147483649 is too small")
         self.checkFail("{2147483648: any}", "Integer 2147483648 is too large")
