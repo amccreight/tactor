@@ -345,6 +345,15 @@ def objectAbsorb(t1, t2):
 
     t1.types = stringFieldTypes
 
+def enumToKind(kind):
+    if kind == 0:
+        return "Message"
+    if kind == 1:
+        return "Query"
+    if kind == 2:
+        return "QueryResolve"
+    assert kind == 3
+    return "QueryReject"
 
 def unifyMessageTypes(actors, log=False):
     newActors = {}
@@ -360,28 +369,45 @@ def unifyMessageTypes(actors, log=False):
         loggedCurrentActor = False
         messages = actors[a]
         for m in sorted(list(messages.keys())):
-            types = list(messages[m])
-            if len(types) == 1:
-                newMessages[m] = types[0]
-                # No need to log if we're not doing anything.
-                continue
-            if log:
-                if not loggedCurrentActor:
-                    loggedCurrentActor = True
-                    print(a)
-                print(f"  {m}")
-                for t in sorted([str(t) for t in types]):
-                    print(f"    {t}")
-            tCombined = None
-            for t in types:
-                if tCombined is None:
-                    tCombined = t
+            kindTypes = messages[m]
+            newMessages[m] = []
+            lastValid = -1
+            for kind in range(len(kindTypes)):
+                types = kindTypes[kind]
+                if len(types) == 0:
+                    if kind == 3 and newMessages[m][2] is not None:
+                        # If no reject type was specified, but a resolve type
+                        # was, allow any type for the reject.
+                        lastValid = kind
+                        newMessages[m].append(AnyType())
+                    else:
+                        newMessages[m].append(None)
                     continue
-                tCombined = unionWith(tCombined, t)
-                assert tCombined is not None
-            newMessages[m] = tCombined
-            if log:
-                print(f"  COMBINED: {tCombined}")
+                if len(types) == 1:
+                    lastValid = kind
+                    newMessages[m].append(types[0])
+                    continue
+                if log:
+                    if not loggedCurrentActor:
+                        loggedCurrentActor = True
+                        print(a)
+                    print(f"  {m}")
+                    for t in sorted([str(t) for t in types]):
+                        print(f"    {t}")
+                tCombined = None
+                for t in types:
+                    if tCombined is None:
+                        tCombined = t
+                        continue
+                    tCombined = unionWith(tCombined, t)
+                    assert tCombined is not None
+                lastValid = kind
+                newMessages[m].append(tCombined)
+                if log:
+                    print(f"  {enumToKind(kind)} COMBINED: {tCombined}")
+            assert lastValid > -1
+            # Remove any trailing None.
+            newMessages[m] = newMessages[m][:lastValid + 1]
         if log and loggedCurrentActor:
             print()
 
@@ -394,7 +420,27 @@ def printMessageTypes(actors):
         mm = actors[a]
         print(a)
         for m in sorted(list(mm.keys())):
-            print(f"  {m} {mm[m]}")
+            types = mm[m]
+            assert len(types) > 0
+            assert len(types) <= 4
+            if types[0] is not None:
+                # Message
+                print(f"  {m} : {types[0]}")
+            if len(types) == 1:
+                continue
+            if types[1] is not None:
+                # Query
+                print(f"  {m} : {types[1]} => never")
+            if len(types) == 2:
+                continue
+            hasType3 = types[2] is not None
+            hasType4 = len(types) == 4 and types[3] is not None
+            if hasType3 or hasType4:
+                # QueryResolve and QueryReject.
+                resolveType = types[2] if hasType3 else "never"
+                rejectType = types[3] if hasType4 else "never"
+                print(f"  {m} : never => [{resolveType}, {rejectType}]")
+
         print()
 
 def serializeJSON(actors, s):
@@ -414,7 +460,8 @@ def serializeJSON(actors, s):
             else:
                 s.addLine(",")
             assert "\"" not in m
-            s.add(f'    "{m}": {mm[m].jsonStr()}')
+            tt = [t.jsonStr() if t is not None else '"never"' for t in mm[m]]
+            s.add(f'    "{m}": [{", ".join(tt)}]')
         s.addLine("")
         s.add("  }")
     s.addLine("")
@@ -472,17 +519,33 @@ class TestActorJSON(unittest.TestCase):
         a10 = {"a": {}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a10)), {'a': {}})
 
-        a1 = {"a": {"m": PrimitiveType("undefined")}}
+        a1 = {"a": {"m": [PrimitiveType("undefined"), None, None, None]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': 'undefined'}})
+                        {'a': {'m': ['undefined', 'never', 'never', 'never']}})
 
-        a2 = {"a": {"m1": AnyType(), "m2": AnyType()}}
+        a1 = {"a": {"m": [PrimitiveType("undefined")]}}
+        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
+                        {'a': {'m': ['undefined']}})
+
+        a1 = {"a": {"m": [None, PrimitiveType("undefined"), None, None]}}
+        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
+                        {'a': {'m': ['never', 'undefined', 'never', 'never']}})
+
+        a1 = {"a": {"m": [None, None, PrimitiveType("undefined"), None]}}
+        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
+                        {'a': {'m': ['never', 'never', 'undefined', 'never']}})
+
+        a1 = {"a": {"m": [PrimitiveType("undefined"), None, None, None]}}
+        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
+                        {'a': {'m': ['undefined', 'never', 'never', 'never']}})
+
+        a2 = {"a": {"m1": [AnyType()], "m2": [AnyType()]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a2)),
-                        {'a': {'m1': 'any', 'm2': 'any'}})
+                        {'a': {'m1': ['any'], 'm2': ['any']}})
 
-        a3 = {"a": {"m1": AnyType()}, "b": {"m2": AnyType()}}
+        a3 = {"a": {"m1": [AnyType()]}, "b": {"m2": [AnyType()]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a3)),
-                        {'a': {'m1': 'any'}, 'b': {'m2': 'any'}})
+                        {'a': {'m1': ['any']}, 'b': {'m2': ['any']}})
 
 if __name__ == "__main__":
     unittest.main()

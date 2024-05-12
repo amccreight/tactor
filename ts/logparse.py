@@ -19,7 +19,8 @@ import sys
 from ts_parse import parseType, ParseError
 from ts import unifyMessageTypes, printMessageTypes, printJSONMessageTypes
 
-typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$')
+messageKindPatt = 'Message|Query|QueryResolve|QueryReject'
+typePatt = re.compile(f'JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) KIND ({messageKindPatt}) TYPE (.+)$')
 # This can also be CONTENTS instead of TYPE, and then it will have the result
 # of toSource(), but I'm not logging that right now so don't worry about it.
 
@@ -27,6 +28,20 @@ typePatt = re.compile('JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) TYPE (.+)$
 fallbackWarningPatt = re.compile('WARNING: AnyToJSIPCValue fallback for (.+): file')
 failedToSerializeWarningPatt = re.compile('WARNING: Failed to serialize')
 
+
+def kindToEnum(k):
+    if len(k) == 7:
+        # Message
+        return 0
+    if len(k) == 5:
+        # Query
+        return 1
+    if len(k) == 12:
+        # QueryResolve
+        return 2
+    # QueryReject
+    assert len(k) == 11
+    return 3
 
 def lookAtActors(args):
     sys.stdin.reconfigure(encoding='latin1')
@@ -58,18 +73,20 @@ def lookAtActors(args):
         isSend = tp.group(1) == "Send"
         actorName = tp.group(2)
         messageName = tp.group(3)
+        kind = kindToEnum(tp.group(4))
 
         # XXX In the previous version of this script, I was skipping
         # for messages with actorName == "DevToolsFrame" and
         # messageName == "DevToolsFrameChild:packet".
 
-        typeRaw = tp.group(4)
+        typeRaw = tp.group(5)
         currActor = actors.setdefault(actorName, {})
-        currMessage = currActor.setdefault(messageName, [])
+        currMessage = currActor.setdefault(messageName, [[], [], [], []])
+        currTypes = currMessage[kind]
         try:
             ty = parseType(typeRaw)
-            if ty not in currMessage:
-                currMessage.append(ty)
+            if ty not in currTypes:
+                currTypes.append(ty)
         except ParseError as p:
             print(p, file=sys.stderr)
             print(f'  while parsing: {typeRaw}', file=sys.stderr)
