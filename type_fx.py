@@ -59,7 +59,7 @@ class PrimitiveType(JSType):
         return self.name
 
     def jsonStr(self):
-        return f'["primitive", "{self.name}"]'
+        return f'"{self.name}"'
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
