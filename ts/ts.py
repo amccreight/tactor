@@ -461,6 +461,10 @@ def serializeJSON(actors, s):
                 s.addLine(",")
             assert "\"" not in m
             tt = [t.jsonStr() if t is not None else '"never"' for t in mm[m]]
+            # For the JSON output, never include the QueryReject type. Instead,
+            # let the checker implicitly treat that as "any".
+            if len(tt) == 4:
+                tt = tt[:3]
             s.add(f'    "{m}": [{", ".join(tt)}]')
         s.addLine("")
         s.add("  }")
@@ -521,7 +525,7 @@ class TestActorJSON(unittest.TestCase):
 
         a1 = {"a": {"m": [PrimitiveType("undefined"), None, None, None]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['undefined', 'never', 'never', 'never']}})
+                        {'a': {'m': ['undefined', 'never', 'never']}})
 
         a1 = {"a": {"m": [PrimitiveType("undefined")]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
@@ -529,15 +533,15 @@ class TestActorJSON(unittest.TestCase):
 
         a1 = {"a": {"m": [None, PrimitiveType("undefined"), None, None]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['never', 'undefined', 'never', 'never']}})
+                        {'a': {'m': ['never', 'undefined', 'never']}})
 
         a1 = {"a": {"m": [None, None, PrimitiveType("undefined"), None]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['never', 'never', 'undefined', 'never']}})
+                        {'a': {'m': ['never', 'never', 'undefined']}})
 
         a1 = {"a": {"m": [PrimitiveType("undefined"), None, None, None]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['undefined', 'never', 'never', 'never']}})
+                        {'a': {'m': ['undefined', 'never', 'never']}})
 
         a2 = {"a": {"m1": [AnyType()], "m2": [AnyType()]}}
         self.assertEqual(json.loads(stringJSONMessageTypes(a2)),
