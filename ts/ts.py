@@ -37,6 +37,26 @@ class AnyType(JSType):
         return 0
 
 
+class NeverType(JSType):
+    def __init__(self):
+        return
+
+    def __eq__(self, o):
+        return self.__class__ == o.__class__
+
+    def __str__(self):
+        return "never"
+
+    def jsonStr(self):
+        return '"never"'
+
+    def __lt__(self, o):
+        return self.classOrd() < o.classOrd()
+
+    def classOrd(self):
+        return 1
+
+
 primitiveTypes = [
     "undefined",
     "string",
@@ -70,7 +90,7 @@ class PrimitiveType(JSType):
         return self.name < o.name
 
     def classOrd(self):
-        return 1
+        return 2
 
 
 # This should be the same as the regexp from t_ID in ts_parse.py.
@@ -157,12 +177,12 @@ class ObjectType(JSType):
         return str(self) < str(o)
 
     def classOrd(self):
-        return 2
+        return 3
 
 
 class ArrayType(JSType):
     def __init__(self, elementType):
-        # elementType can be None to represent the type of an empty array.
+        assert elementType is not None
         self.elementType = elementType
 
     def __eq__(self, o):
@@ -171,29 +191,19 @@ class ArrayType(JSType):
         return self.elementType == o.elementType
 
     def __str__(self):
-        if self.elementType:
-            elementString = str(self.elementType)
-        else:
-            elementString = "never"
+        elementString = str(self.elementType)
         return f"Array<{elementString}>"
 
     def jsonStr(self):
-        if self.elementType:
-            return f'["array", {self.elementType.jsonStr()}]'
-        else:
-            return f'["array"]'
+        return f'["array", {self.elementType.jsonStr()}]'
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
             return self.classOrd() < o.classOrd()
-        if self.elementType is None:
-            return o.elementType is not None
-        if o.elementType is None:
-            return False
         return self.elementType < o.elementType
 
     def classOrd(self):
-        return 3
+        return 4
 
 
 class UnionType(JSType):
@@ -218,7 +228,7 @@ class UnionType(JSType):
         return s
 
     def classOrd(self):
-        return 4
+        return 5
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -269,6 +279,8 @@ def tryUnionWith(t1, t2):
     # Check a few "wildcard" cases on t2.
     if isinstance(t2, AnyType):
       return t2
+    if isinstance(t2, NeverType):
+      return t1
     if isinstance(t2, UnionType):
       t2.absorb(t1)
       return t2
@@ -276,6 +288,8 @@ def tryUnionWith(t1, t2):
     # Now deal with the remaining cases for t1.
     if isinstance(t1, AnyType):
         return t1
+    if isinstance(t1, NeverType):
+        return t2
     if isinstance(t1, PrimitiveType):
         if t1 == t2:
             return t1
@@ -290,10 +304,6 @@ def tryUnionWith(t1, t2):
             return None
         # Array(a | b) is nicer than Array(a) | Array(b) so always merge them,
         # unless one is being used as the type for an empty array.
-        if t1.elementType is None:
-            return t2
-        if t2.elementType is None:
-            return t1
         t1.elementType = unionWith(t1.elementType, t2.elementType)
         return t1
     if isinstance(t1, UnionType):
@@ -512,7 +522,11 @@ class TestUnion(unittest.TestCase):
                                                         PrimitiveType("string")]), False)])
         self.assertEqual(str(tryUnionWith(t1, t2)), "{x: null | string}")
 
-        self.assertEqual(str(ArrayType(None)), "Array<never>")
+        self.assertEqual(str(ArrayType(NeverType())), "Array<never>")
+
+        self.assertEqual(str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number")
+        self.assertEqual(str(tryUnionWith(PrimitiveType("number"), NeverType())), "number")
+
 
 class TestActorJSON(unittest.TestCase):
     def test_valid(self):

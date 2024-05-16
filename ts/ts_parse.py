@@ -7,7 +7,7 @@
 # Parser for a subset of TypeScript.
 
 from ply import lex, yacc
-from ts import AnyType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
+from ts import AnyType, NeverType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
 import unittest
 
 
@@ -91,6 +91,7 @@ lex.lex(debug=parserDebug)
 def p_JSType(p):
     """JSType : PrimitiveType
     | AnyType
+    | NeverType
     | ObjectType
     | ArrayType
     | JSType '|' JSType
@@ -119,6 +120,10 @@ def p_PrimitiveType(p):
 def p_AnyType(p):
     """AnyType : ANY"""
     p[0] = AnyType()
+
+def p_NeverType(p):
+    """NeverType : NEVER"""
+    p[0] = NeverType()
 
 def p_ObjectType(p):
     """ObjectType : '{' ObjectTypeInner '}'
@@ -164,16 +169,9 @@ def p_MaybeOptional(p):
         assert len(p) == 2
         p[0] = False
 
-# XXX Change this to look like an actual JS array?
-# XXX The newest version only supports a single type, so we can't really
-# implement it as a Python array.
 def p_ArrayType(p):
-    """ArrayType : ARRAY '<' JSType '>'
-    | ARRAY '<' NEVER '>'"""
-    if p[3] == "never":
-        p[0] = ArrayType(None)
-    else:
-        p[0] = ArrayType(p[3])
+    """ArrayType : ARRAY '<' JSType '>'"""
+    p[0] = ArrayType(p[3])
 
 def p_error(p):
     raise ParseError(p.lexpos, f'Syntax error at {p.value}')
@@ -215,8 +213,9 @@ class TestPrinting(unittest.TestCase):
         except ParseError as p:
             self.assertIn(error, str(p))
 
-    def test_any(self):
+    def test_any_never(self):
         self.check("any", '"any"')
+        self.check("never", '"never"')
 
     def test_primitive(self):
         self.check("undefined", '"undefined"')
@@ -231,16 +230,16 @@ class TestPrinting(unittest.TestCase):
 
     def test_array(self):
         self.check("Array<any>", '["array", "any"]')
-        self.check("Array<never>", '["array"]')
+        self.check("Array<never>", '["array", "never"]')
         self.check("Array<nsIPrincipal>", '["array", "nsIPrincipal"]')
         self.check("Array<Array<any>>", '["array", ["array", "any"]]')
-        self.check("Array<Array<never>>", '["array", ["array"]]')
+        self.check("Array<Array<never>>", '["array", ["array", "never"]]')
 
     def test_union(self):
         self.check("any | any", '["union", "any", "any"]')
         # Do this in both orders to check that we aren't sorting.
-        self.check("Array<never> | Array<any>", '["union", ["array"], ["array", "any"]]')
-        self.check("Array<any> | Array<never>", '["union", ["array", "any"], ["array"]]')
+        self.check("Array<never> | Array<any>", '["union", ["array", "never"], ["array", "any"]]')
+        self.check("Array<any> | Array<never>", '["union", ["array", "any"], ["array", "never"]]')
         self.check("any | string | undefined",
                    '["union", ["union", "any", "string"], "undefined"]')
 
