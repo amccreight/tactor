@@ -481,6 +481,35 @@ def serializeJSON(actors, s):
     s.addLine("")
     s.addLine("}")
 
+def serializeTS(actors, s):
+    s.addLine("type MessageTypes = {")
+    for a in sorted(list(actors.keys())):
+        mm = actors[a]
+        s.addLine(f'  "{a}": {{')
+        for m in sorted(list(mm.keys())):
+            assert "\"" not in m
+            assert len(mm) <= 4
+            for [i, t] in enumerate(mm[m]):
+                if t is None:
+                    continue
+                if i == 3:
+                    # For the TS output, never include the QueryReject type.
+                    # Instead, make it implicitly treated as "any", if a
+                    # QueryResolve type is defined.
+                    continue
+                s.add(f'    "{m}": ')
+                if i == 0:
+                    # Message
+                    s.addLine(f'{t};')
+                elif i == 1:
+                    # Query
+                    s.addLine(f'(_: {t}) => never;')
+                elif i == 2:
+                    # QueryResolve
+                    s.addLine(f'(_: never) => {t};')
+        s.addLine("  };")
+    s.addLine("};")
+
 class printSerializer:
     def add(self, s):
         sys.stdout.write(s)
@@ -490,6 +519,10 @@ class printSerializer:
 # Print out the types of actor messages, using the JSON syntax.
 def printJSONMessageTypes(actors):
     serializeJSON(actors, printSerializer())
+
+# Print out the types of actor messages, using a TypeScript-based syntax.
+def printTSMessageTypes(actors):
+    serializeTS(actors, printSerializer())
 
 class stringSerializer:
     def __init__(self):

@@ -17,7 +17,7 @@ import argparse
 import re
 import sys
 from ts_parse import parseType, ParseError
-from ts import unifyMessageTypes, printMessageTypes, printJSONMessageTypes
+from ts import unifyMessageTypes, printMessageTypes, printJSONMessageTypes, printTSMessageTypes
 
 messageKindPatt = 'Message|Query|QueryResolve|QueryReject'
 typePatt = re.compile(f'JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) KIND ({messageKindPatt}) TYPE (.+)$')
@@ -93,10 +93,13 @@ def lookAtActors(args):
             return
 
     # Union together the types from different instances of each message.
-    actors = unifyMessageTypes(actors, log=not args.json)
+    actors = unifyMessageTypes(actors, log=not (args.json or args.ts))
 
     if args.json:
         printJSONMessageTypes(actors)
+        return
+    elif args.ts:
+        printTSMessageTypes(actors)
         return
 
     print("=========================")
@@ -116,6 +119,9 @@ def lookAtActors(args):
 parser = argparse.ArgumentParser()
 parser.add_argument("--json",
                     help="Print output as JSON.",
+                    action="store_true")
+parser.add_argument("--ts",
+                    help="Print output as TypeScript.",
                     action="store_true")
 args = parser.parse_args()
 
