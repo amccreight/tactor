@@ -456,26 +456,26 @@ def printMessageTypes(actors):
 def serializeJSON(actors, s):
     s.addLine("{")
     firstActor = True
-    for a in sorted(list(actors.keys())):
-        mm = actors[a]
+    for actorName in sorted(list(actors.keys())):
+        mm = actors[actorName]
         if firstActor:
             firstActor = False
         else:
             s.addLine(",")
-        s.addLine(f'  "{a}": {{')
+        s.addLine(f'  "{actorName}": {{')
         firstMessage = True
-        for m in sorted(list(mm.keys())):
+        for messageName in sorted(list(mm.keys())):
             if firstMessage:
                 firstMessage = False
             else:
                 s.addLine(",")
-            assert "\"" not in m
-            tt = [t.jsonStr() if t is not None else '"never"' for t in mm[m]]
+            assert "\"" not in messageName
+            tt = [t.jsonStr() if t is not None else '"never"' for t in mm[messageName]]
             # For the JSON output, never include the QueryReject type. Instead,
             # let the checker implicitly treat that as "any".
             if len(tt) == 4:
                 tt = tt[:3]
-            s.add(f'    "{m}": [{", ".join(tt)}]')
+            s.add(f'    "{messageName}": [{", ".join(tt)}]')
         s.addLine("")
         s.add("  }")
     s.addLine("")
@@ -483,13 +483,13 @@ def serializeJSON(actors, s):
 
 def serializeTS(actors, s):
     s.addLine("type MessageTypes = {")
-    for a in sorted(list(actors.keys())):
-        mm = actors[a]
-        s.addLine(f'  "{a}": {{')
-        for m in sorted(list(mm.keys())):
-            assert "\"" not in m
+    for actorName in sorted(list(actors.keys())):
+        mm = actors[actorName]
+        s.addLine(f'  "{actorName}": {{')
+        for messageName in sorted(list(mm.keys())):
+            assert "\"" not in messageName
             assert len(mm) <= 4
-            for [i, t] in enumerate(mm[m]):
+            for [i, t] in enumerate(mm[messageName]):
                 if t is None:
                     continue
                 if i == 3:
@@ -497,7 +497,7 @@ def serializeTS(actors, s):
                     # Instead, make it implicitly treated as "any", if a
                     # QueryResolve type is defined.
                     continue
-                s.add(f'    "{m}": ')
+                s.add(f'    "{messageName}": ')
                 if i == 0:
                     # Message
                     s.addLine(f'{t};')
