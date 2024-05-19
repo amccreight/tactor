@@ -481,11 +481,17 @@ def serializeJSON(actors, s):
     s.addLine("")
     s.addLine("}")
 
+def quoteNonIdentifier(name):
+    if identifierRe.fullmatch(name):
+        return name
+    else:
+        return '"' + name + '"'
+
 def serializeTS(actors, s):
     s.addLine("type MessageTypes = {")
     for actorName in sorted(list(actors.keys())):
         mm = actors[actorName]
-        s.addLine(f'  "{actorName}": {{')
+        s.addLine(f'  {quoteNonIdentifier(actorName)}: {{')
         for messageName in sorted(list(mm.keys())):
             assert "\"" not in messageName
             assert len(mm) <= 4
@@ -497,7 +503,7 @@ def serializeTS(actors, s):
                     # Instead, make it implicitly treated as "any", if a
                     # QueryResolve type is defined.
                     continue
-                s.add(f'    "{messageName}": ')
+                s.add(f'    {quoteNonIdentifier(messageName)}: ')
                 if i == 0:
                     # Message
                     s.addLine(f'{t};')
