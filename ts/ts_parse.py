@@ -79,7 +79,7 @@ def t_ARROW(t):
     r"=>"
     return t
 
-literals = "(){},?:;<>|" + "=_"
+literals = "(){},?:;<>|" + "="
 
 precedence = [['left', '|']]
 
@@ -226,7 +226,7 @@ def p_MessageDecl(p):
 
 def p_MessageType(p):
     """MessageType : JSType
-    | '(' '_' ':' JSType ')' ARROW JSType
+    | '(' ID ':' JSType ')' ARROW JSType
     """
     if len(p) == 2:
         # message kind Message
