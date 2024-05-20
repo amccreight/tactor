@@ -39,6 +39,7 @@ tokens = [
     "INTEGER",
     "STRING_SINGLE",
     "STRING_DOUBLE",
+    "ARROW",
 ] + [r.upper() for r in reserved]
 
 # The (?!\d) means that the first character can't be a number.
@@ -74,7 +75,11 @@ def t_STRING_DOUBLE(t):
     t.value = t.value[1:-1].replace('\\"', '"')
     return t
 
-literals = "(){},?:;<>|"
+def t_ARROW(t):
+    r"=>"
+    return t
+
+literals = "(){},?:;<>|" + "=_"
 
 precedence = [['left', '|']]
 
@@ -87,6 +92,8 @@ def t_error(t):
 
 parserDebug = False
 lex.lex(debug=parserDebug)
+
+# Type declarations.
 
 def p_JSType(p):
     """JSType : PrimitiveType
@@ -172,6 +179,81 @@ def p_MaybeOptional(p):
 def p_ArrayType(p):
     """ArrayType : ARRAY '<' JSType '>'"""
     p[0] = ArrayType(p[3])
+
+# Top level actor message declarations.
+
+def p_TopLevelActor(p):
+    """TopLevelActor : ID ID '=' '{' ActorDecls '}' ';'"""
+    if p[1] != "type":
+        raise ParseError(p.lexpos, f'Expected actor declarations to start with "type", not "{p[1]}"')
+    if p[2] != "MessageTypes":
+        raise ParseError(p.lexpos, f'Expected pretend type name "MessageTypes", not "{p[2]}"')
+    p[0] = p[5]
+
+# XXX Do we want to require a trailing semi-colon? For now, require it.
+def p_ActorDecls(p) :
+    """ActorDecls : ActorDecl ';' ActorDecls
+    | """
+    if len(p) == 4:
+        p[0] = [p[1]] + p[2]
+    else:
+        assert len(p) == 1
+        p[0] = []
+
+def p_ActorDecl(p) :
+    """ActorDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
+    p[0] = [p[1], p[4]]
+
+def p_ActorOrMessageName(p):
+    """ActorOrMessageName : ID
+    | STRING_SINGLE
+    | STRING_DOUBLE"""
+    p[0] = p[1]
+
+# XXX Do we want to require a trailing semi-colon? For now, require it.
+def p_MessageDecls(p):
+    """MessageDecls : MessageDecl ';' MessageDecls
+    | """
+    if len(p) == 4:
+        p[0] = [p[1]] + p[2]
+    else:
+        assert len(p) == 1
+        p[0] = []
+
+def p_MessageDecl(p):
+    """MessageDecl : ActorOrMessageName ':' MessageType"""
+    p[0] = [p[1], p[2]]
+
+def p_MessageType(p):
+    """MessageType : JSType
+    | '(' '_' ':' JSType ')' ARROW JSType
+    """
+    if len(p) == 2:
+        # message kind Message
+        p[0] = [p[1]]
+    else:
+        assert len(p) == 8
+        t1 = p[4]
+        t2 = p[7]
+        isNever1 = NeverType() == t1
+        isNever2 = NeverType() == t2
+        if isNever1:
+            if isNever2:
+                # (_: never) => never;
+                # I guess people can make empty declarations. Maybe it should
+                # be an error.
+                return []
+            # (_: never) => T
+            # message kind QueryResolve.
+            return [NeverType(), NeverType(), t2]
+        if isNever2:
+            # (_: T) => never
+            # message kind Query
+            return [NeverType(), t1]
+        raise ParseError(p.lexpos, 'Message type must have "never" to either the left or right of the arrow')
+
+
+# Generic definitions.
 
 def p_error(p):
     raise ParseError(p.lexpos, f'Syntax error at {p.value}')
