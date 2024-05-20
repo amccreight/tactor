@@ -176,10 +176,13 @@ def p_ArrayType(p):
 def p_error(p):
     raise ParseError(p.lexpos, f'Syntax error at {p.value}')
 
-yacc.yacc(write_tables=False)
+typeParser = None
 
 def parseType(s):
-    return yacc.parse(s, debug=parserDebug)
+    global typeParser
+    if typeParser is None:
+        typeParser = yacc.yacc(start='JSType', write_tables=False)
+    return typeParser.parse(s, debug=parserDebug)
 
 def basicTest():
     def parseAndCheck(s1):
