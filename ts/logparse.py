@@ -51,6 +51,8 @@ def lookAtActors(args):
     fallbackWith = {}
     failedSerialize = 0
 
+    failedType = []
+
     # Parse the input.
     for l in sys.stdin:
         fwp = fallbackWarningPatt.search(l)
@@ -87,6 +89,9 @@ def lookAtActors(args):
         if typeRaw == "NO VALUE":
             # The JS IPC value being passed in was None, so nothing to do.
             continue
+        if typeRaw == "FAILED":
+            failedType.append([actorName, messageName])
+            continue
 
         try:
             ty = parseType(typeRaw)
@@ -110,6 +115,16 @@ def lookAtActors(args):
     print("=========================")
     print()
     printMessageTypes(actors)
+    print()
+
+    if len(failedType) > 0:
+        print("=========================")
+        print()
+        print("****FAILURES****")
+        for [a, m] in failedType:
+            print(f'Actor: {a}; Message: {m}')
+        print()
+
     print("=========================")
     print()
 
