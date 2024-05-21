@@ -494,7 +494,7 @@ def serializeTS(actors, s):
         s.addLine(f'  {quoteNonIdentifier(actorName)}: {{')
         for messageName in sorted(list(mm.keys())):
             assert "\"" not in messageName
-            assert len(mm) <= 4
+            assert len(mm[messageName]) <= 4
             for [i, t] in enumerate(mm[messageName]):
                 if t is None:
                     continue
