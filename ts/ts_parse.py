@@ -148,12 +148,27 @@ def p_FieldSeparator(p):
     | ';'"""
     p[0] = p[1]
 
-# This will definitely cause problems if we have a keyword as a property name.
 def p_PropertyName(p):
     """PropertyName : ID
+    | ReservedPropertyName
     | INTEGER
     | STRING_SINGLE
     | STRING_DOUBLE"""
+    p[0] = p[1]
+
+# Our "reserved" words aren't reserved, so they can be used
+# as names. This is a big hack to try to revert that.
+def p_ReservedPropertyName(p):
+    """ReservedPropertyName : UNDEFINED
+    | STRING
+    | NULL
+    | BOOLEAN
+    | NUMBER
+    | NSIPRINCIPAL
+    | BROWSINGCONTEXT
+    | ANY
+    | NEVER
+    | ARRAY"""
     p[0] = p[1]
 
 def p_ObjectTypeInner(p):
@@ -340,6 +355,8 @@ class TestPrinting(unittest.TestCase):
                    '["object", [-2147483648, "any"], [2147483647, "any"]]')
         self.check("{x?: any; y: string}",
                    '["object", ["x", "any", true], ["y", "string"]]')
+        # Our "reserved" words can be used as property names.
+        self.check("{number: any}", '["object", ["number", "any"]]')
 
         self.checkFail("{-2147483649: any}", "Integer -2147483649 is too small")
         self.checkFail("{2147483648: any}", "Integer 2147483648 is too large")
