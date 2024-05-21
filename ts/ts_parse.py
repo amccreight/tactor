@@ -134,7 +134,7 @@ def p_NeverType(p):
 
 def p_ObjectType(p):
     """ObjectType : '{' ObjectTypeInner '}'
-    | '{' ObjectTypeInner FieldSeparator '}'
+    | '{' ObjectTypeInner PropertySeparator '}'
     | '{' '}'"""
     if len(p) == 4:
         p[0] = ObjectType(p[2])
@@ -143,8 +143,8 @@ def p_ObjectType(p):
     else:
         p[0] = ObjectType([])
 
-def p_FieldSeparator(p):
-    """FieldSeparator : ','
+def p_PropertySeparator(p):
+    """PropertySeparator : ','
     | ';'"""
     p[0] = p[1]
 
@@ -172,7 +172,7 @@ def p_ReservedPropertyName(p):
     p[0] = p[1]
 
 def p_ObjectTypeInner(p):
-    """ObjectTypeInner : ObjectTypeInner FieldSeparator PropertyName MaybeOptional JSType
+    """ObjectTypeInner : ObjectTypeInner PropertySeparator PropertyName MaybeOptional JSType
     | PropertyName MaybeOptional JSType"""
     if len(p) == 6:
         tt = p[1]
@@ -197,23 +197,32 @@ def p_ArrayType(p):
 
 # Top level actor message declarations.
 
+def p_TopLevelDecls(p):
+    """TopLevelDecls : TopLevelActor
+    | TopLevelActor ';'"""
+    p[0] = p[1]
+
 def p_TopLevelActor(p):
-    """TopLevelActor : ID ID '=' '{' ActorDecls '}' ';'"""
+    """TopLevelActor : ID ID '=' '{' ActorDecls '}'"""
     if p[1] != "type":
         raise ParseError(p.lexpos, f'Expected actor declarations to start with "type", not "{p[1]}"')
     if p[2] != "MessageTypes":
         raise ParseError(p.lexpos, f'Expected pretend type name "MessageTypes", not "{p[2]}"')
     p[0] = p[5]
 
-# XXX Do we want to require a trailing semi-colon? For now, require it.
 def p_ActorDecls(p) :
-    """ActorDecls : ActorDecl ';' ActorDecls
-    | """
+    """ActorDecls : ActorDeclsInner
+    | ActorDeclsInner PropertySeparator"""
+    p[0] = p[1]
+
+def p_ActorDeclsInner(p) :
+    """ActorDeclsInner : ActorDeclsInner PropertySeparator ActorDecl
+    | ActorDecl"""
     if len(p) == 4:
-        p[0] = [p[1]] + p[2]
+        p[0] = p[1].append(p[2])
     else:
-        assert len(p) == 1
-        p[0] = []
+        assert len(p) == 2
+        p[0] = [p[1]]
 
 def p_ActorDecl(p) :
     """ActorDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
@@ -225,15 +234,19 @@ def p_ActorOrMessageName(p):
     | STRING_DOUBLE"""
     p[0] = p[1]
 
-# XXX Do we want to require a trailing semi-colon? For now, require it.
 def p_MessageDecls(p):
-    """MessageDecls : MessageDecl ';' MessageDecls
-    | """
+    """MessageDecls : MessageDeclsInner
+    | MessageDeclsInner PropertySeparator"""
+    p[0] = p[1]
+
+def p_MessageDeclsInner(p):
+    """MessageDeclsInner : MessageDeclsInner MessageDecl PropertySeparator
+    | MessageDecl"""
     if len(p) == 4:
-        p[0] = [p[1]] + p[2]
+        p[0] = p[1].append(p[2])
     else:
-        assert len(p) == 1
-        p[0] = []
+        assert len(p) == 2
+        p[0] = [p[1]]
 
 def p_MessageDecl(p):
     """MessageDecl : ActorOrMessageName ':' MessageType"""
@@ -278,8 +291,19 @@ typeParser = None
 def parseType(s):
     global typeParser
     if typeParser is None:
+        # This will generate a lot of warnings about the unused actor decls
+        # rules, but that's okay.
         typeParser = yacc.yacc(start='JSType', write_tables=False)
     return typeParser.parse(s, debug=parserDebug)
+
+actorDeclsParser = None
+
+def parseActorDecls(s):
+    global actorDeclsParser
+    if actorDeclsParser is None:
+        actorDeclsParser = yacc.yacc(start='TopLevelDecls', write_tables=False)
+    return typeParser.parse(s, debug=parserDebug)
+
 
 def basicTest():
     def parseAndCheck(s1):
