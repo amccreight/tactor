@@ -83,6 +83,11 @@ def lookAtActors(args):
         currActor = actors.setdefault(actorName, {})
         currMessage = currActor.setdefault(messageName, [[], [], [], []])
         currTypes = currMessage[kind]
+
+        if typeRaw == "NO VALUE":
+            # The JS IPC value being passed in was None, so nothing to do.
+            continue
+
         try:
             ty = parseType(typeRaw)
             if ty not in currTypes:
