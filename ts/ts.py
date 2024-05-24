@@ -7,9 +7,7 @@
 # Python representation of a subset of TypeScript.
 
 import re
-import sys
 import unittest
-import json
 
 
 class JSType:
@@ -70,7 +68,7 @@ primRegexp = re.compile("|".join(primitiveTypes))
 
 class PrimitiveType(JSType):
     def __init__(self, name):
-        assert primRegexp.match(name)
+        assert primRegexp.fullmatch(name)
         self.name = name
 
     def __eq__(self, o):
@@ -98,7 +96,6 @@ identifierRe = re.compile("(?!\d)[\w$]+")
 
 class JSPropertyType:
     def __init__(self, n, t, opt):
-        # XXX Need to implement support for integer names.
         assert isinstance(n, str) or isinstance(n, int)
         assert isinstance(t, JSType)
         assert isinstance(opt, bool)
@@ -355,193 +352,6 @@ def objectAbsorb(t1, t2):
 
     t1.types = stringFieldTypes
 
-def enumToKind(kind):
-    if kind == 0:
-        return "Message"
-    if kind == 1:
-        return "Query"
-    if kind == 2:
-        return "QueryResolve"
-    assert kind == 3
-    return "QueryReject"
-
-def unifyMessageTypes(actors, log=False):
-    newActors = {}
-
-    if log:
-        print("Logging information about type combining")
-        print()
-
-    for a in sorted(list(actors.keys())):
-        assert a not in newActors
-        newMessages = {}
-        newActors[a] = newMessages
-        loggedCurrentActor = False
-        messages = actors[a]
-        for m in sorted(list(messages.keys())):
-            kindTypes = messages[m]
-            newMessages[m] = []
-            lastValid = -1
-            for kind in range(len(kindTypes)):
-                types = kindTypes[kind]
-                if len(types) == 0:
-                    if kind == 3 and newMessages[m][2] is not None:
-                        # If no reject type was specified, but a resolve type
-                        # was, allow any type for the reject.
-                        lastValid = kind
-                        newMessages[m].append(AnyType())
-                    else:
-                        newMessages[m].append(None)
-                    continue
-                if len(types) == 1:
-                    lastValid = kind
-                    newMessages[m].append(types[0])
-                    continue
-                if log:
-                    if not loggedCurrentActor:
-                        loggedCurrentActor = True
-                        print(a)
-                    print(f"  {m}")
-                    for t in sorted([str(t) for t in types]):
-                        print(f"    {t}")
-                tCombined = None
-                for t in types:
-                    if tCombined is None:
-                        tCombined = t
-                        continue
-                    tCombined = unionWith(tCombined, t)
-                    assert tCombined is not None
-                lastValid = kind
-                newMessages[m].append(tCombined)
-                if log:
-                    print(f"  {enumToKind(kind)} COMBINED: {tCombined}")
-            assert lastValid > -1
-            # Remove any trailing None.
-            newMessages[m] = newMessages[m][:lastValid + 1]
-        if log and loggedCurrentActor:
-            print()
-
-    return newActors
-
-
-# Print out the types of actor messages, using the default TypeScript-like syntax.
-def printMessageTypes(actors):
-    for a in sorted(list(actors.keys())):
-        mm = actors[a]
-        print(a)
-        for m in sorted(list(mm.keys())):
-            types = mm[m]
-            assert len(types) > 0
-            assert len(types) <= 4
-            if types[0] is not None:
-                # Message
-                print(f"  {m} : {types[0]}")
-            if len(types) == 1:
-                continue
-            if types[1] is not None:
-                # Query
-                print(f"  {m} : {types[1]} => never")
-            if len(types) == 2:
-                continue
-            hasType3 = types[2] is not None
-            hasType4 = len(types) == 4 and types[3] is not None
-            if hasType3 or hasType4:
-                # QueryResolve and QueryReject.
-                resolveType = types[2] if hasType3 else "never"
-                rejectType = types[3] if hasType4 else "never"
-                print(f"  {m} : never => [{resolveType}, {rejectType}]")
-
-        print()
-
-def serializeJSON(actors, s):
-    s.addLine("{")
-    firstActor = True
-    for actorName in sorted(list(actors.keys())):
-        mm = actors[actorName]
-        if firstActor:
-            firstActor = False
-        else:
-            s.addLine(",")
-        s.addLine(f'  "{actorName}": {{')
-        firstMessage = True
-        for messageName in sorted(list(mm.keys())):
-            if firstMessage:
-                firstMessage = False
-            else:
-                s.addLine(",")
-            assert "\"" not in messageName
-            tt = [t.jsonStr() if t is not None else '"never"' for t in mm[messageName]]
-            # For the JSON output, never include the QueryReject type. Instead,
-            # let the checker implicitly treat that as "any".
-            if len(tt) == 4:
-                tt = tt[:3]
-            s.add(f'    "{messageName}": [{", ".join(tt)}]')
-        s.addLine("")
-        s.add("  }")
-    s.addLine("")
-    s.addLine("}")
-
-def quoteNonIdentifier(name):
-    if identifierRe.fullmatch(name):
-        return name
-    else:
-        return '"' + name + '"'
-
-def serializeTS(actors, s):
-    s.addLine("type MessageTypes = {")
-    for actorName in sorted(list(actors.keys())):
-        mm = actors[actorName]
-        s.addLine(f'  {quoteNonIdentifier(actorName)}: {{')
-        for messageName in sorted(list(mm.keys())):
-            assert "\"" not in messageName
-            assert len(mm[messageName]) <= 4
-            for [i, t] in enumerate(mm[messageName]):
-                if t is None:
-                    continue
-                if i == 3:
-                    # For the TS output, never include the QueryReject type.
-                    # Instead, make it implicitly treated as "any", if a
-                    # QueryResolve type is defined.
-                    continue
-                s.add(f'    {quoteNonIdentifier(messageName)}: ')
-                if i == 0:
-                    # Message
-                    s.addLine(f'{t};')
-                elif i == 1:
-                    # Query
-                    s.addLine(f'(_: {t}) => never;')
-                elif i == 2:
-                    # QueryResolve
-                    s.addLine(f'(_: never) => {t};')
-        s.addLine("  };")
-    s.addLine("};")
-
-class printSerializer:
-    def add(self, s):
-        sys.stdout.write(s)
-    def addLine(self, s):
-        print(s)
-
-# Print out the types of actor messages, using the JSON syntax.
-def printJSONMessageTypes(actors):
-    serializeJSON(actors, printSerializer())
-
-# Print out the types of actor messages, using a TypeScript-based syntax.
-def printTSMessageTypes(actors):
-    serializeTS(actors, printSerializer())
-
-class stringSerializer:
-    def __init__(self):
-        self.string = ""
-    def add(self, s):
-        self.string += s
-    def addLine(self, s):
-        self.string += s + "\n"
-
-def stringJSONMessageTypes(actors):
-    s = stringSerializer()
-    serializeJSON(actors, s)
-    return s.string
 
 class TestUnion(unittest.TestCase):
     def test_basic(self):
@@ -566,43 +376,6 @@ class TestUnion(unittest.TestCase):
         self.assertEqual(str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number")
         self.assertEqual(str(tryUnionWith(PrimitiveType("number"), NeverType())), "number")
 
-
-class TestActorJSON(unittest.TestCase):
-    def test_valid(self):
-        # Test that the actor and message stuff produces valid JSON.
-        a0 = {}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a0)), {})
-
-        a10 = {"a": {}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a10)), {'a': {}})
-
-        a1 = {"a": {"m": [PrimitiveType("undefined"), None, None, None]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['undefined', 'never', 'never']}})
-
-        a1 = {"a": {"m": [PrimitiveType("undefined")]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['undefined']}})
-
-        a1 = {"a": {"m": [None, PrimitiveType("undefined"), None, None]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['never', 'undefined', 'never']}})
-
-        a1 = {"a": {"m": [None, None, PrimitiveType("undefined"), None]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['never', 'never', 'undefined']}})
-
-        a1 = {"a": {"m": [PrimitiveType("undefined"), None, None, None]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a1)),
-                        {'a': {'m': ['undefined', 'never', 'never']}})
-
-        a2 = {"a": {"m1": [AnyType()], "m2": [AnyType()]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a2)),
-                        {'a': {'m1': ['any'], 'm2': ['any']}})
-
-        a3 = {"a": {"m1": [AnyType()]}, "b": {"m2": [AnyType()]}}
-        self.assertEqual(json.loads(stringJSONMessageTypes(a3)),
-                        {'a': {'m1': ['any']}, 'b': {'m2': ['any']}})
 
 if __name__ == "__main__":
     unittest.main()

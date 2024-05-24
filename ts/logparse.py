@@ -17,7 +17,7 @@ import argparse
 import re
 import sys
 from ts_parse import parseType, ParseError
-from ts import unifyMessageTypes, printMessageTypes, printJSONMessageTypes, printTSMessageTypes
+from actor_decls import ActorDecls
 
 messageKindPatt = 'Message|Query|QueryResolve|QueryReject'
 typePatt = re.compile(f'JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) KIND ({messageKindPatt}) TYPE (.+)$')
@@ -103,18 +103,18 @@ def lookAtActors(args):
             return
 
     # Union together the types from different instances of each message.
-    actors = unifyMessageTypes(actors, log=not (args.json or args.ts))
+    actors = ActorDecls.unify(actors, log=not (args.json or args.ts))
 
     if args.json:
-        printJSONMessageTypes(actors)
+        actors.printJSON()
         return
     elif args.ts:
-        printTSMessageTypes(actors)
+        actors.printTS()
         return
 
     print("=========================")
     print()
-    printMessageTypes(actors)
+    actors.printText()
     print()
 
     if len(failedType) > 0:

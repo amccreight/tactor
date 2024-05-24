@@ -9,7 +9,8 @@
 import json
 import unittest
 import re
-from ts import identifierRe, AnyType, stringSerializer
+import sys
+from ts import identifierRe, AnyType, unionWith
 
 
 # Representation of a source file location. This is needed so we can report
@@ -44,7 +45,7 @@ def quoteNonIdentifier(name):
     else:
         return '"' + name + '"'
 
-def enumToStr(kind):
+def kindToStr(kind):
     if kind == 0:
         return "sendAsyncMessage()"
     if kind == 1:
@@ -54,6 +55,19 @@ def enumToStr(kind):
     assert kind == 3
     return "query reject"
 
+class printSerializer:
+    def add(self, s):
+        sys.stdout.write(s)
+    def addLine(self, s):
+        print(s)
+
+class stringSerializer:
+    def __init__(self):
+        self.string = ""
+    def add(self, s):
+        self.string += s
+    def addLine(self, s):
+        self.string += s + "\n"
 
 class ActorDecls:
     def __init__(self):
@@ -75,7 +89,7 @@ class ActorDecls:
             loc0 = actor.existingMessageKindLoc(messageName, kind)
             raise ActorError(loc,
                              f'Multiple declarations of actor "{actorName}"\'s ' +
-                             f'{enumToStr(kind)} message "{messageName}".' +
+                             f'{kindToStr(kind)} message "{messageName}".' +
                              f' Previous was at {loc0}')
 
     def serializeJSON(self, s):
@@ -96,6 +110,88 @@ class ActorDecls:
         s = stringSerializer()
         self.serializeJSON(s)
         return s.string
+
+    def printJSON(self):
+        self.serializeJSON(printSerializer())
+
+    def serializeTS(self, s):
+        s.addLine("type MessageTypes = {")
+        for actorName in sorted(list(self.actors.keys())):
+            messages = self.actors[actorName]
+            s.add(f'  {quoteNonIdentifier(actorName)}: ')
+            messages.serializeTS(s, "  ")
+        s.addLine("};")
+
+    def toTS(self):
+        s = stringSerializer()
+        self.serializeTS(s)
+        return s.string
+
+    def printTS(self):
+        self.serializeTS(printSerializer())
+
+    # Very similar to the TS format, except the actor decls part isn't a
+    # dictionary.
+    def serializeText(self, s):
+        for actorName in sorted(list(self.actors.keys())):
+            messages = self.actors[actorName]
+            s.addLine(f'{actorName}')
+            messages.serializeText(s, "")
+            s.addLine('')
+
+    def printText(self):
+        self.serializeText(printSerializer())
+
+    # This takes a map from actor names to message names to a list of list of
+    # types and combines the list of types together to produce an ActorDecl.
+    def unify(actors, log=False):
+        newActors = ActorDecls()
+
+        if log:
+            print("Logging information about type combining")
+            print()
+
+        for a in sorted(list(actors.keys())):
+            newActors.addActor(Loc(), a)
+            loggedCurrentActor = False
+            messages = actors[a]
+            for m in sorted(list(messages.keys())):
+                kindTypes = messages[m]
+                haveQueryResolve = False
+                for kind in range(len(kindTypes)):
+                    types = kindTypes[kind]
+                    if len(types) == 0:
+                        if kind == 3 and haveQueryResolve:
+                            # If no reject type was specified, but a resolve type
+                            # was, allow any type for the reject.
+                            newActors.addMessage(Loc(), a, m, AnyType(), kind)
+                        continue
+                    if kind == 2:
+                        haveQueryResolve = True
+                    if len(types) == 1:
+                        newActors.addMessage(Loc(), a, m, types[0], kind)
+                        continue
+                    if log:
+                        if not loggedCurrentActor:
+                            loggedCurrentActor = True
+                            print(a)
+                        print(f"  {m}")
+                        for t in sorted([str(t) for t in types]):
+                            print(f"    {t}")
+                    tCombined = None
+                    for t in types:
+                        if tCombined is None:
+                            tCombined = t
+                            continue
+                        tCombined = unionWith(tCombined, t)
+                        assert tCombined is not None
+                    newActors.addMessage(Loc(), a, m, tCombined, kind)
+                    if log:
+                        print(f"  {kindToStr(kind)} message COMBINED: {tCombined}")
+            if log and loggedCurrentActor:
+                print()
+
+        return newActors
 
 
 # For now, only allow actor declarations in a single location. Hopefully
@@ -148,6 +244,12 @@ class ActorDecl:
         self.serializeTS(s, "")
         return s.string
 
+    def serializeText(self, s, indent):
+        for messageName in sorted(list(self.messages.keys())):
+            assert "\"" not in messageName
+            name = indent + "  " + messageName
+            self.messages[messageName].serializeTS(s, name, False)
+
 
 class MessageTypes:
     def __init__(self, loc, t, kind):
@@ -195,7 +297,7 @@ class MessageTypes:
         return s.string
 
     # messageName must include any indentation.
-    def serializeTS(self, s, messageName):
+    def serializeTS(self, s, messageName, realTS = True):
         assert len(self.types) <= 4
         for [i, t] in enumerate(self.types):
             if t is None:
@@ -205,17 +307,31 @@ class MessageTypes:
                 # For the TS output, never include the QueryReject type.
                 # Instead, make it implicitly treated as "any", if a
                 # QueryResolve type is defined.
-                continue
-            s.add(f'{messageName}: ')
+                if realTS or t == AnyType():
+                    continue
+            if realTS:
+                s.add(f'{messageName}: ')
+            else:
+                s.add(f'{messageName} : ')
             if i == 0:
                 # Message
-                s.addLine(f'{t};')
+                s.add(f'{t}')
             elif i == 1:
                 # Query
-                s.addLine(f'(_: {t}) => never;')
+                s.add(f'(_: {t}) => never')
             elif i == 2:
                 # QueryResolve
-                s.addLine(f'(_: never) => {t};')
+                s.add(f'(_: never) => {t}')
+            else:
+                assert i == 3
+                assert not realTS
+                # QueryReject
+                s.add(f'(reject: never) => {t}')
+
+            if realTS:
+                s.addLine(';')
+            else:
+                s.addLine('')
 
     def toTS(self, messageName):
         s = stringSerializer()
@@ -274,7 +390,9 @@ class MessageTests(unittest.TestCase):
 
     def test_actorDecls(self):
         ads = ActorDecls()
+        self.assertEqual(json.loads(ads.toJSON()), {})
         ads.addActor(Loc(), "B")
+        self.assertEqual(json.loads(ads.toJSON()), {"B": {}})
         with self.assertRaisesRegex(ActorError, 'Multiple declarations of actor "B".'):
             ads.addActor(Loc(), "B")
         ads.addMessage(Loc(), "B", "M", AnyType(), 0)
@@ -287,6 +405,12 @@ class MessageTests(unittest.TestCase):
         ads.addMessage(Loc(), "A", "M", AnyType(), 0)
         self.assertEqual(json.loads(ads.toJSON()),
                          {"A": {"M": ["any"]}, "B": {"M": ["any"]}})
+        self.assertEqual(ads.toTS(),
+                         "type MessageTypes = {\n" +
+                         "  A: {\n    M: any;\n  };\n" +
+                         "  B: {\n    M: any;\n  };\n" +
+                         "};\n")
+
 
 if __name__ == "__main__":
     unittest.main()
