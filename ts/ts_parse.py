@@ -9,6 +9,7 @@
 from ply import lex, yacc
 from ts import AnyType, NeverType, PrimitiveType, JSPropertyType, ObjectType, ArrayType, UnionType
 import unittest
+import re
 
 
 class ParseError(Exception):
@@ -329,11 +330,8 @@ class TestPrinting(unittest.TestCase):
         self.assertEqual(t.jsonStr(), json)
 
     def checkFail(self, s, error):
-        try:
+        with self.assertRaisesRegex(ParseError, re.escape(error)):
             parseType(s)
-            assert False
-        except ParseError as p:
-            self.assertIn(error, str(p))
 
     def test_any_never(self):
         self.check("any", '"any"')
