@@ -204,7 +204,7 @@ def p_TopLevelDecls(p):
     p[0] = p[1]
 
 def p_TopLevelActor(p):
-    """TopLevelActor : ID ID '=' '{' ActorDecls '}'"""
+    """TopLevelActor : ID ID '=' '{' ActorDecls '}' ';'"""
     if p[1] != "type":
         raise ParseError(p.lexpos, f'Expected actor declarations to start with "type", not "{p[1]}"')
     if p[2] != "MessageTypes":
@@ -251,7 +251,7 @@ def p_MessageDeclsInner(p):
 
 def p_MessageDecl(p):
     """MessageDecl : ActorOrMessageName ':' MessageType"""
-    p[0] = [p[1], p[2]]
+    p[0] = [p[1], p[3]]
 
 def p_MessageType(p):
     """MessageType : JSType
@@ -303,7 +303,7 @@ def parseActorDecls(s):
     global actorDeclsParser
     if actorDeclsParser is None:
         actorDeclsParser = yacc.yacc(start='TopLevelDecls', write_tables=False)
-    return typeParser.parse(s, debug=parserDebug)
+    return actorDeclsParser.parse(s, debug=parserDebug)
 
 
 class BasicParseTests(unittest.TestCase):
