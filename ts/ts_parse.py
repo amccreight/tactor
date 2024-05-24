@@ -305,24 +305,22 @@ def parseActorDecls(s):
     return typeParser.parse(s, debug=parserDebug)
 
 
-def basicTest():
-    def parseAndCheck(s1):
+class BasicParseTests(unittest.TestCase):
+    def parseAndCheck(self, s1):
         s2 = parseType(s1)
-        print(f"{s1} --> {s2}")
-        assert s1 == str(s2)
-    def parseAndCheckFail(s):
-        try:
-            parseType(s)
-            assert False
-        except ParseError as p:
-            return
-    parseAndCheck("{whatever_$123: string}")
-    parseAndCheckFail("{1whatever: string}")
-    parseAndCheck("{\"https://*.example.com/*\": string}")
-    parseAndCheck('{"\\t": string}')
-    parseAndCheck('Array<never>')
-    parseAndCheckFail('Array<>')
+        self.assertEqual(s1, str(s2))
 
+    def parseAndCheckFail(self, s):
+        with self.assertRaises(ParseError):
+            parseType(s)
+
+    def test_basic(self):
+        self.parseAndCheck("{whatever_$123: string}")
+        self.parseAndCheckFail("{1whatever: string}")
+        self.parseAndCheck("{\"https://*.example.com/*\": string}")
+        self.parseAndCheck('{"\\t": string}')
+        self.parseAndCheck('Array<never>')
+        self.parseAndCheckFail('Array<>')
 
 class TestPrinting(unittest.TestCase):
     def check(self, s, json):
@@ -387,6 +385,4 @@ class TestPrinting(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    basicTest()
-
     unittest.main()
