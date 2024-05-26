@@ -73,14 +73,20 @@ class ActorDecls:
     def __init__(self):
         self.actors = {}
 
-    def addActor(self, loc, actorName):
+    def addActor(self, actorName, actorDecl):
         assert "\"" not in actorName
         if actorName in self.actors:
             loc0 = self.actors[actorName].loc
-            raise ActorError(loc,
+            raise ActorError(actorDecl.loc,
                              f'Multiple declarations of actor "{actorName}".' +
                              f' Previous was at {loc0}')
-        self.actors[actorName] = ActorDecl(loc)
+        self.actors[actorName] = actorDecl
+
+    # Helper for use by the parser.
+    def addActorL(self, l):
+        assert isinstance(l, list)
+        assert len(l) == 2
+        self.addActor(l[0], l[1])
 
     def addMessage(self, loc, actorName, messageName, t, kind):
         assert actorName in self.actors
@@ -152,7 +158,7 @@ class ActorDecls:
             print()
 
         for a in sorted(list(actors.keys())):
-            newActors.addActor(Loc(), a)
+            newActors.addActor(a, ActorDecl(Loc()))
             loggedCurrentActor = False
             messages = actors[a]
             for m in sorted(list(messages.keys())):
@@ -207,6 +213,12 @@ class ActorDecl:
             self.messages[messageName] = MessageTypes(loc, t, kind)
             return True
         return self.messages[messageName].addType(loc, t, kind)
+
+    # Helper method that is easier to use while parsing.
+    def addMessageL(self, l):
+        assert isinstance(l, list)
+        assert len(l) == 4
+        return self.addMessage(l[0], l[1], l[2], l[3])
 
     def existingMessageKindLoc(self, messageName, kind):
         assert messageName in self.messages
@@ -391,17 +403,17 @@ class MessageTests(unittest.TestCase):
     def test_actorDecls(self):
         ads = ActorDecls()
         self.assertEqual(json.loads(ads.toJSON()), {})
-        ads.addActor(Loc(), "B")
+        ads.addActor("B", ActorDecl(Loc()))
         self.assertEqual(json.loads(ads.toJSON()), {"B": {}})
         with self.assertRaisesRegex(ActorError, 'Multiple declarations of actor "B".'):
-            ads.addActor(Loc(), "B")
+            ads.addActor("B", ActorDecl(Loc()))
         ads.addMessage(Loc(), "B", "M", AnyType(), 0)
         self.assertEqual(json.loads(ads.toJSON()), {"B": {"M": ["any"]}})
         e = 'Multiple declarations of actor "B"\'s sendAsyncMessage() message "M"'
         with self.assertRaisesRegex(ActorError,
                                     re.escape(e)):
             ads.addMessage(Loc(), "B", "M", AnyType(), 0)
-        ads.addActor(Loc(), "A")
+        ads.addActor("A", ActorDecl(Loc()))
         ads.addMessage(Loc(), "A", "M", AnyType(), 0)
         self.assertEqual(json.loads(ads.toJSON()),
                          {"A": {"M": ["any"]}, "B": {"M": ["any"]}})
