@@ -7,8 +7,8 @@
 # Translating the pseudo-TypeScript for message actor types to the JSON output.
 
 from ts_parse import parseActorDecls
+import sys
 
-# XXX Need to reject things like multiple declarations for an actor name, message name, message kind combo.
 
 # XXX Need to take a list of files on the command line.
 

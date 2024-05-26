@@ -112,7 +112,6 @@ def t_error(t):
 
 
 parserDebug = False
-lex.lex(debug=parserDebug)
 
 # Type declarations.
 
@@ -343,46 +342,45 @@ def p_error(p):
     raise ParseError(Loc(currFilename, lineno),
                      f'Syntax error near "{value}"')
 
-lexer = None
-typeParser = None
 
-def parseType(s):
-    global lexer
-    if lexer is None:
-        lexer = lex.lex(debug=parserDebug)
-    global typeParser
-    if typeParser is None:
+class TypeParser:
+    def __init__(self):
+        self.lexer = lex.lex(debug=parserDebug)
         # This will generate a lot of warnings about the unused actor decls
         # rules, but that's okay.
-        typeParser = yacc.yacc(start='JSType', write_tables=False)
-    global currFilename
-    currFilename = "type"
-    lexer.lineno = 1
-    return typeParser.parse(s, lexer=lexer, debug=parserDebug)
+        self.parser = yacc.yacc(start='JSType', write_tables=False)
 
-actorDeclsParser = None
+    def parse(self, s):
+        global currFilename
+        currFilename = "type"
+        self.lexer.lineno = 1
+        return self.parser.parse(s, lexer=self.lexer, debug=parserDebug)
 
-def parseActorDecls(s, filename):
-    global lexer
-    if lexer is None:
-        lexer = lex.lex(debug=parserDebug)
-    global actorDeclsParser
-    if actorDeclsParser is None:
-        actorDeclsParser = yacc.yacc(start='TopLevelDecls', write_tables=False)
-    global currFilename
-    currFilename = filename
-    lexer.lineno = 1
-    return actorDeclsParser.parse(s, lexer=lexer, debug=parserDebug)
+
+class ActorDeclsParser:
+    def __init__(self):
+        self.lexer = lex.lex(debug=parserDebug)
+        self.parser = yacc.yacc(start='TopLevelDecls', write_tables=False)
+
+    def parse(self, s, filename):
+        global currFilename
+        currFilename = filename
+        self.lexer.lineno = 1
+        return self.parser.parse(s, lexer=self.lexer, debug=parserDebug)
 
 
 class BasicParseTests(unittest.TestCase):
+    def __init__(self, methodName):
+        unittest.TestCase.__init__(self, methodName)
+        self.parser = TypeParser()
+
     def parseAndCheck(self, s1):
-        s2 = parseType(s1)
+        s2 = self.parser.parse(s1)
         self.assertEqual(s1, str(s2))
 
     def parseAndCheckFail(self, s, e):
         with self.assertRaisesRegex(ParseError, re.escape(e)):
-            parseType(s)
+            self.parser.parse(s)
 
     def test_basic(self):
         self.parseAndCheck("{whatever_$123: string}")
@@ -392,21 +390,26 @@ class BasicParseTests(unittest.TestCase):
         self.parseAndCheck('Array<never>')
         self.parseAndCheckFail('Array<>', 'Syntax error near ">"')
 
-class TestPrinting(unittest.TestCase):
+class TestTypePrinting(unittest.TestCase):
+    def __init__(self, methodName):
+        unittest.TestCase.__init__(self, methodName)
+        self.parser = TypeParser()
+
     def check(self, s, json):
-        t = parseType(s)
+        t = self.parser.parse(s)
         self.assertEqual(s, str(t))
         self.assertEqual(t.jsonStr(), json)
 
     def checkFail(self, s, error):
         with self.assertRaisesRegex(ParseError, re.escape(error)):
-            parseType(s)
+            self.parser.parse(s)
 
-    def test_any_never(self):
+    def test_basic(self):
+        # any and never
         self.check("any", '"any"')
         self.check("never", '"never"')
 
-    def test_primitive(self):
+        # primitives
         self.check("undefined", '"undefined"')
         self.check("string", '"string"')
         self.check("undefined", '"undefined"')
@@ -417,14 +420,14 @@ class TestPrinting(unittest.TestCase):
         self.check("nsIPrincipal", '"nsIPrincipal"')
         self.check("BrowsingContext", '"BrowsingContext"')
 
-    def test_array(self):
+        # Array
         self.check("Array<any>", '["array", "any"]')
         self.check("Array<never>", '["array", "never"]')
         self.check("Array<nsIPrincipal>", '["array", "nsIPrincipal"]')
         self.check("Array<Array<any>>", '["array", ["array", "any"]]')
         self.check("Array<Array<never>>", '["array", ["array", "never"]]')
 
-    def test_union(self):
+        # union
         self.check("any | any", '["union", "any", "any"]')
         # Do this in both orders to check that we aren't sorting.
         self.check("Array<never> | Array<any>", '["union", ["array", "never"], ["array", "any"]]')
@@ -432,7 +435,7 @@ class TestPrinting(unittest.TestCase):
         self.check("any | string | undefined",
                    '["union", ["union", "any", "string"], "undefined"]')
 
-    def test_object(self):
+        # object
         self.check("{}", '["object"]')
         self.check("{bar: Array<any>; foo: string}",
                    '["object", ["bar", ["array", "any"]], ["foo", "string"]]')
@@ -450,19 +453,24 @@ class TestPrinting(unittest.TestCase):
         self.checkFail("{-2147483649: any}", "Integer -2147483649 is too small")
         self.checkFail("{2147483648: any}", "Integer 2147483648 is too large")
 
+
 class ParseActorDeclsTests(unittest.TestCase):
+    def __init__(self, methodName):
+        unittest.TestCase.__init__(self, methodName)
+        self.parser = ActorDeclsParser()
+
     # The expected result is given as a Python JSON expression because that's
     # the simplest way to write down a big expression.
     def parseTest(self, x, y):
-        self.assertEqual(json.loads(parseActorDecls(x, "test").toJSON()), y)
+        self.assertEqual(json.loads(self.parser.parse(x, "test").toJSON()), y)
 
     def parseAndCheckFailP(self, s, e):
         with self.assertRaisesRegex(ParseError, re.escape(e)):
-            parseActorDecls(s, "test")
+            self.parser.parse(s, "test")
 
     def parseAndCheckFail(self, s, e):
         with self.assertRaisesRegex(ActorError, re.escape(e)):
-            parseActorDecls(s, "test")
+            self.parser.parse(s, "test")
 
     def test_basic_valid(self):
         # Testing support for multiple messages and actors.
