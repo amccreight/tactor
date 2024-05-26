@@ -30,343 +30,343 @@ def _safeLinenoValue(t):
         value = t.value
     return lineno, value
 
-# XXX Bundle this state into a Parser structure like IPDL does?
-currFilename = None
 
-def locFromTok(p, num):
-    return Loc(currFilename, p.lineno(num))
-
-reserved = set(
-    (
-        "undefined",
-        "string",
-        "null",
-        "boolean",
-        "number",
-        "nsIPrincipal",
-        "BrowsingContext",
-        "any",
-        "never",
-        "Array",
+class Tokenizer(object):
+    reserved = set(
+        (
+            "undefined",
+            "string",
+            "null",
+            "boolean",
+            "number",
+            "nsIPrincipal",
+            "BrowsingContext",
+            "any",
+            "never",
+            "Array",
+        )
     )
-)
 
-tokens = [
-    "ID",
-    "INTEGER",
-    "STRING_SINGLE",
-    "STRING_DOUBLE",
-    "ARROW",
-] + [r.upper() for r in reserved]
+    tokens = [
+        "ID",
+        "INTEGER",
+        "STRING_SINGLE",
+        "STRING_DOUBLE",
+        "ARROW",
+    ]
+    tokens.extend([r.upper() for r in reserved])
 
-# The (?!\d) means that the first character can't be a number.
-def t_ID(t):
-    r"(?!\d)[\w$]+"
-    if t.value in reserved:
-        t.type = t.value.upper()
-    return t
+    # The (?!\d) means that the first character can't be a number.
+    def t_ID(self, t):
+        r"(?!\d)[\w$]+"
+        if t.value in self.reserved:
+            t.type = t.value.upper()
+        return t
 
-def t_INTEGER(t):
-    r"-?\d+"
-    i = int(t.value)
-    if i < -2147483648:
-        raise ParseError(t.lexpos, f"Integer {i} is too small")
-    if i > 2147483647:
-        raise ParseError(t.lexpos, f"Integer {i} is too large")
-    t.value = i
-    return t
+    def t_INTEGER(self, t):
+        r"-?\d+"
+        i = int(t.value)
+        if i < -2147483648:
+            raise ParseError(t.lexpos, f"Integer {i} is too small")
+        if i > 2147483647:
+            raise ParseError(t.lexpos, f"Integer {i} is too large")
+        t.value = i
+        return t
 
-# XXX These probably need to escape everything, but I need to keep
-# this in sync with JSActorMessageType::ObjectType::ToString().
-# If I do that, it'll look more like
-# import codecs
-# t.value = codecs.decode(t.value[1:-1], "unicode-escape")
+    # XXX These probably need to escape everything, but I need to keep
+    # this in sync with JSActorMessageType::ObjectType::ToString().
+    # If I do that, it'll look more like
+    # import codecs
+    # t.value = codecs.decode(t.value[1:-1], "unicode-escape")
 
-def t_STRING_SINGLE(t):
-    r"'(?:[^'\\\n]|\\.)*'"
-    t.value = t.value[1:-1].replace("\\'", "'")
-    return t
+    def t_STRING_SINGLE(self, t):
+        r"'(?:[^'\\\n]|\\.)*'"
+        t.value = t.value[1:-1].replace("\\'", "'")
+        return t
 
-def t_STRING_DOUBLE(t):
-    r'"(?:[^"\\\n]|\\.)*"'
-    t.value = t.value[1:-1].replace('\\"', '"')
-    return t
+    def t_STRING_DOUBLE(self, t):
+        r'"(?:[^"\\\n]|\\.)*"'
+        t.value = t.value[1:-1].replace('\\"', '"')
+        return t
 
-def t_ARROW(t):
-    r"=>"
-    return t
+    def t_ARROW(self, t):
+        r"=>"
+        return t
 
-def t_newline(t):
-    r"\n+"
-    t.lexer.lineno += len(t.value)
+    def t_newline(self, t):
+        r"\n+"
+        t.lexer.lineno += len(t.value)
 
-literals = "(){},?:;<>|" + "="
+    literals = "(){},?:;<>|" + "="
 
-precedence = [['left', '|']]
+    precedence = [['left', '|']]
 
+    t_ignore = " \t\r"
 
-t_ignore = " \t\r"
+    def t_error(self, t):
+        raise ParseError(t.lexpos, f'Bad character {t.value[0]}')
 
-def t_error(t):
-    raise ParseError(t.lexpos, f'Bad character {t.value[0]}')
-
-
-parserDebug = False
-
-# Type declarations.
-
-def p_JSType(p):
-    """JSType : PrimitiveType
-    | AnyType
-    | NeverType
-    | ObjectType
-    | ArrayType
-    | JSType '|' JSType
-    | '(' JSType ')'"""
-    if len(p) == 2:
-        p[0] = p[1]
-    else:
-        assert len(p) == 4
-        if p[1] == '(':
-            p[0] = p[2]
+    def __init__(self, debug=False, lexer=None):
+        if lexer:
+            self.lexer = lexer
         else:
-            tt = p[1].types if isinstance(p[1], UnionType) else [p[1]]
-            tt.append(p[3])
-            p[0] = UnionType(tt)
+            self.lexer = lex.lex(object=self, debug=debug)
+            self.debug = debug
 
-def p_PrimitiveType(p):
-    """PrimitiveType : UNDEFINED
-    | STRING
-    | NULL
-    | BOOLEAN
-    | NUMBER
-    | NSIPRINCIPAL
-    | BROWSINGCONTEXT"""
-    p[0] = PrimitiveType(p[1])
 
-def p_AnyType(p):
-    """AnyType : ANY"""
-    p[0] = AnyType()
+class Parser(Tokenizer):
+    def __init__(self, start, debug=False, lexer=None):
+        Tokenizer.__init__(self, debug=debug, lexer=lexer)
+        self.parser = yacc.yacc(module = self, start=start, write_tables=False)
 
-def p_NeverType(p):
-    """NeverType : NEVER"""
-    p[0] = NeverType()
+    # Type declarations.
 
-def p_ObjectType(p):
-    """ObjectType : '{' ObjectTypeInner '}'
-    | '{' ObjectTypeInner PropertySeparator '}'
-    | '{' '}'"""
-    if len(p) == 4:
-        p[0] = ObjectType(p[2])
-    elif len(p) == 5:
-        p[0] = ObjectType(p[2])
-    else:
-        p[0] = ObjectType([])
+    def p_JSType(self, p):
+        """JSType : PrimitiveType
+        | AnyType
+        | NeverType
+        | ObjectType
+        | ArrayType
+        | JSType '|' JSType
+        | '(' JSType ')'"""
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            assert len(p) == 4
+            if p[1] == '(':
+                p[0] = p[2]
+            else:
+                tt = p[1].types if isinstance(p[1], UnionType) else [p[1]]
+                tt.append(p[3])
+                p[0] = UnionType(tt)
 
-def p_PropertySeparator(p):
-    """PropertySeparator : ','
-    | ';'"""
-    p[0] = p[1]
+    def p_PrimitiveType(self, p):
+        """PrimitiveType : UNDEFINED
+        | STRING
+        | NULL
+        | BOOLEAN
+        | NUMBER
+        | NSIPRINCIPAL
+        | BROWSINGCONTEXT"""
+        p[0] = PrimitiveType(p[1])
 
-def p_PropertyName(p):
-    """PropertyName : ID
-    | ReservedPropertyName
-    | INTEGER
-    | STRING_SINGLE
-    | STRING_DOUBLE"""
-    p[0] = p[1]
+    def p_AnyType(self, p):
+        """AnyType : ANY"""
+        p[0] = AnyType()
 
-# Our "reserved" words aren't reserved, so they can be used
-# as names. This is a big hack to try to revert that.
-def p_ReservedPropertyName(p):
-    """ReservedPropertyName : UNDEFINED
-    | STRING
-    | NULL
-    | BOOLEAN
-    | NUMBER
-    | NSIPRINCIPAL
-    | BROWSINGCONTEXT
-    | ANY
-    | NEVER
-    | ARRAY"""
-    p[0] = p[1]
+    def p_NeverType(self, p):
+        """NeverType : NEVER"""
+        p[0] = NeverType()
 
-def p_ObjectTypeInner(p):
-    """ObjectTypeInner : ObjectTypeInner PropertySeparator PropertyName MaybeOptional JSType
-    | PropertyName MaybeOptional JSType"""
-    if len(p) == 6:
-        tt = p[1]
-        tt.append(JSPropertyType(p[3], p[5], p[4]))
-        p[0] = tt
-    else:
-        assert len(p) == 4
-        p[0] = [JSPropertyType(p[1], p[3], p[2])]
+    def p_ObjectType(self, p):
+        """ObjectType : '{' ObjectTypeInner '}'
+        | '{' ObjectTypeInner PropertySeparator '}'
+        | '{' '}'"""
+        if len(p) == 4:
+            p[0] = ObjectType(p[2])
+        elif len(p) == 5:
+            p[0] = ObjectType(p[2])
+        else:
+            p[0] = ObjectType([])
 
-def p_MaybeOptional(p):
-    """MaybeOptional : '?' ':'
-    | ':'"""
-    if len(p) == 3:
-        p[0] = True
-    else:
-        assert len(p) == 2
-        p[0] = False
+    def p_PropertySeparator(self, p):
+        """PropertySeparator : ','
+        | ';'"""
+        p[0] = p[1]
 
-def p_ArrayType(p):
-    """ArrayType : ARRAY '<' JSType '>'"""
-    p[0] = ArrayType(p[3])
+    def p_PropertyName(self, p):
+        """PropertyName : ID
+        | ReservedPropertyName
+        | INTEGER
+        | STRING_SINGLE
+        | STRING_DOUBLE"""
+        p[0] = p[1]
 
-# Top level actor message declarations.
+    # Our "reserved" words aren't reserved, so they can be used
+    # as names. This is a big hack to try to revert that.
+    def p_ReservedPropertyName(self, p):
+        """ReservedPropertyName : UNDEFINED
+        | STRING
+        | NULL
+        | BOOLEAN
+        | NUMBER
+        | NSIPRINCIPAL
+        | BROWSINGCONTEXT
+        | ANY
+        | NEVER
+        | ARRAY"""
+        p[0] = p[1]
 
-def p_TopLevelDecls(p):
-    """TopLevelDecls : TopLevelActor
-    | TopLevelActor ';'"""
-    p[0] = p[1]
+    def p_ObjectTypeInner(self, p):
+        """ObjectTypeInner : ObjectTypeInner PropertySeparator PropertyName MaybeOptional JSType
+        | PropertyName MaybeOptional JSType"""
+        if len(p) == 6:
+            tt = p[1]
+            tt.append(JSPropertyType(p[3], p[5], p[4]))
+            p[0] = tt
+        else:
+            assert len(p) == 4
+            p[0] = [JSPropertyType(p[1], p[3], p[2])]
 
-def p_TopLevelActor(p):
-    """TopLevelActor : ID ID '=' '{' ActorDecls '}' ';'"""
-    if p[1] != "type":
-        raise ParseError(locFromTok(p, 1),
-                         f'Expected actor declarations to start with "type", not "{p[1]}"')
-    if p[2] != "MessageTypes":
-        raise ParseError(locFromTok(p, 2),
-                         f'Expected top level type name to be "MessageTypes", not "{p[2]}"')
-    p[0] = p[5]
+    def p_MaybeOptional(self, p):
+        """MaybeOptional : '?' ':'
+        | ':'"""
+        if len(p) == 3:
+            p[0] = True
+        else:
+            assert len(p) == 2
+            p[0] = False
 
-def p_ActorDecls(p) :
-    """ActorDecls : ActorDeclsInner
-    | ActorDeclsInner PropertySeparator"""
-    p[0] = p[1]
+    def p_ArrayType(self, p):
+        """ArrayType : ARRAY '<' JSType '>'"""
+        p[0] = ArrayType(p[3])
 
-def p_ActorDeclsInner(p) :
-    """ActorDeclsInner : ActorDeclsInner PropertySeparator ActorDecl
-    | ActorDecl"""
-    if len(p) == 4:
-        actors = p[1]
-        actors.addActorL(p[3])
-        p[0] = actors
-    else:
-        assert len(p) == 2
-        actors = ActorDecls()
-        actors.addActorL(p[1])
-        p[0] = actors
+    # Top level actor message declarations.
 
-def p_ActorDecl(p) :
-    """ActorDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
-    actorDecl = p[4]
-    [loc, actorName] = p[1]
-    if isinstance(actorDecl, ActorDecl):
-        actorDecl.loc = loc
-        p[0] = [actorName, actorDecl]
-    else:
-        [loc, kind, messageName, loc0] = actorDecl
-        raise ParseError(loc,
-                         f'Multiple declarations of actor "{actorName}"\'s ' +
-                         f'{kindToStr(kind)} message "{messageName}".' +
-                         f' Previous was at {loc0}')
+    def p_TopLevelDecls(self, p):
+        """TopLevelDecls : TopLevelActor
+        | TopLevelActor ';'"""
+        p[0] = p[1]
 
-def p_ActorOrMessageName(p):
-    """ActorOrMessageName : ID
-    | STRING_SINGLE
-    | STRING_DOUBLE"""
-    p[0] = [locFromTok(p, 1), p[1]]
+    def p_TopLevelActor(self, p):
+        """TopLevelActor : ID ID '=' '{' ActorDecls '}' ';'"""
+        if p[1] != "type":
+            raise ParseError(self.locFromTok(p, 1),
+                            f'Expected actor declarations to start with "type", not "{p[1]}"')
+        if p[2] != "MessageTypes":
+            raise ParseError(self.locFromTok(p, 2),
+                            f'Expected top level type name to be "MessageTypes", not "{p[2]}"')
+        p[0] = p[5]
 
-def p_MessageDecls(p):
-    """MessageDecls : MessageDeclsInner
-    | MessageDeclsInner PropertySeparator"""
-    p[0] = p[1]
+    def p_ActorDecls(self, p) :
+        """ActorDecls : ActorDeclsInner
+        | ActorDeclsInner PropertySeparator"""
+        p[0] = p[1]
 
-def p_MessageDeclsInner(p):
-    """MessageDeclsInner : MessageDeclsInner PropertySeparator MessageDecl
-    | MessageDecl"""
-    if len(p) == 4:
-        actorDecl = p[1]
-        newDecl = p[3]
-    else:
-        assert len(p) == 2
-        actorDecl = ActorDecl(Loc())
-        newDecl = p[1]
-    if actorDecl.addMessageL(newDecl):
-        p[0] = actorDecl
-    else:
-        # Duplicate actor type declaration. Pass the data needed for an error
-        # message back up to the point where we know what the actor is.
-        [loc, messageName, _, kind] = newDecl
-        loc0 = actorDecl.existingMessageKindLoc(messageName, kind)
-        p[0] = [loc, kind, messageName, loc0]
+    def p_ActorDeclsInner(self, p) :
+        """ActorDeclsInner : ActorDeclsInner PropertySeparator ActorDecl
+        | ActorDecl"""
+        if len(p) == 4:
+            actors = p[1]
+            actors.addActorL(p[3])
+            p[0] = actors
+        else:
+            assert len(p) == 2
+            actors = ActorDecls()
+            actors.addActorL(p[1])
+            p[0] = actors
 
-def p_MessageDecl(p):
-    """MessageDecl : ActorOrMessageName ':' MessageType"""
-    p[0] = p[1] + p[3]
+    def p_ActorDecl(self, p) :
+        """ActorDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
+        actorDecl = p[4]
+        [loc, actorName] = p[1]
+        if isinstance(actorDecl, ActorDecl):
+            actorDecl.loc = loc
+            p[0] = [actorName, actorDecl]
+        else:
+            [loc, kind, messageName, loc0] = actorDecl
+            raise ParseError(loc,
+                            f'Multiple declarations of actor "{actorName}"\'s ' +
+                            f'{kindToStr(kind)} message "{messageName}".' +
+                            f' Previous was at {loc0}')
 
-def p_MessageType(p):
-    """MessageType : JSType
-    | '(' ID ':' JSType ')' ARROW JSType
-    """
-    if len(p) == 2:
-        # Message kind: Message.
-        p[0] = [p[1], 0]
-    else:
-        assert len(p) == 8
-        t1 = p[4]
-        t2 = p[7]
-        isNever1 = NeverType() == t1
-        isNever2 = NeverType() == t2
-        if isNever1:
+    def p_ActorOrMessageName(self, p):
+        """ActorOrMessageName : ID
+        | STRING_SINGLE
+        | STRING_DOUBLE"""
+        p[0] = [self.locFromTok(p, 1), p[1]]
+
+    def p_MessageDecls(self, p):
+        """MessageDecls : MessageDeclsInner
+        | MessageDeclsInner PropertySeparator"""
+        p[0] = p[1]
+
+    def p_MessageDeclsInner(self, p):
+        """MessageDeclsInner : MessageDeclsInner PropertySeparator MessageDecl
+        | MessageDecl"""
+        if len(p) == 4:
+            actorDecl = p[1]
+            newDecl = p[3]
+        else:
+            assert len(p) == 2
+            actorDecl = ActorDecl(Loc())
+            newDecl = p[1]
+        if actorDecl.addMessageL(newDecl):
+            p[0] = actorDecl
+        else:
+            # Duplicate actor type declaration. Pass the data needed for an error
+            # message back up to the point where we know what the actor is.
+            [loc, messageName, _, kind] = newDecl
+            loc0 = actorDecl.existingMessageKindLoc(messageName, kind)
+            p[0] = [loc, kind, messageName, loc0]
+
+    def p_MessageDecl(self, p):
+        """MessageDecl : ActorOrMessageName ':' MessageType"""
+        p[0] = p[1] + p[3]
+
+    def p_MessageType(self, p):
+        """MessageType : JSType
+        | '(' ID ':' JSType ')' ARROW JSType
+        """
+        if len(p) == 2:
+            # Message kind: Message.
+            p[0] = [p[1], 0]
+        else:
+            assert len(p) == 8
+            t1 = p[4]
+            t2 = p[7]
+            isNever1 = NeverType() == t1
+            isNever2 = NeverType() == t2
+            if isNever1:
+                if isNever2:
+                    # (_: never) => never;
+                    # We could treat this as doing nothing, but that doesn't seem
+                    # like it is worth the hassle.
+                    raise ParseError(self.locFromTok(p, 1),
+                                    'Message type must have a non-"never" type '
+                                    'to either the left or right of the arrow')
+                # (_: never) => T
+                # Message kind: QueryResolve.
+                # It is not possible to specify QueryReject.
+                p[0] = [t2, 2]
+                return
             if isNever2:
-                # (_: never) => never;
-                # We could treat this as doing nothing, but that doesn't seem
-                # like it is worth the hassle.
-                raise ParseError(locFromTok(p, 1),
-                                 'Message type must have a non-"never" type '
-                                 'to either the left or right of the arrow')
-            # (_: never) => T
-            # Message kind: QueryResolve.
-            # It is not possible to specify QueryReject.
-            p[0] = [t2, 2]
-            return
-        if isNever2:
-            # (_: T) => never
-            # Message kind: Query.
-            p[0] = [t1, 1]
-            return
-        # (_: T1) => T2
-        raise ParseError(locFromTok(p, 1),
-                         'Message type must have "never" to either the left ' +
-                         'or right of the arrow')
+                # (_: T) => never
+                # Message kind: Query.
+                p[0] = [t1, 1]
+                return
+            # (_: T1) => T2
+            raise ParseError(self.locFromTok(p, 1),
+                            'Message type must have "never" to either the left ' +
+                            'or right of the arrow')
 
 
-# Generic definitions.
+    # Generic definitions.
 
-def p_error(p):
-    lineno, value = _safeLinenoValue(p)
-    raise ParseError(Loc(currFilename, lineno),
-                     f'Syntax error near "{value}"')
+    def p_error(self, p):
+        lineno, value = _safeLinenoValue(p)
+        raise ParseError(Loc(self.currFilename, lineno),
+                        f'Syntax error near "{value}"')
+
+    def locFromTok(self, p, num):
+        return Loc(self.currFilename, p.lineno(num))
+
+    def parse(self, s, filename="???"):
+        self.currFilename = filename
+        self.lexer.lineno = 1
+        return self.parser.parse(s, lexer=self.lexer, debug=self.debug)
 
 
-class TypeParser:
-    def __init__(self):
-        self.lexer = lex.lex(debug=parserDebug)
+class TypeParser(Parser):
+    def __init__(self, debug=False):
         # This will generate a lot of warnings about the unused actor decls
         # rules, but that's okay.
-        self.parser = yacc.yacc(start='JSType', write_tables=False)
-
-    def parse(self, s):
-        global currFilename
-        currFilename = "type"
-        self.lexer.lineno = 1
-        return self.parser.parse(s, lexer=self.lexer, debug=parserDebug)
+        Parser.__init__(self, start='JSType', debug=debug)
 
 
-class ActorDeclsParser:
-    def __init__(self):
-        self.lexer = lex.lex(debug=parserDebug)
-        self.parser = yacc.yacc(start='TopLevelDecls', write_tables=False)
-
-    def parse(self, s, filename):
-        global currFilename
-        currFilename = filename
-        self.lexer.lineno = 1
-        return self.parser.parse(s, lexer=self.lexer, debug=parserDebug)
+class ActorDeclsParser(Parser):
+    def __init__(self, debug=False):
+        Parser.__init__(self, start='TopLevelDecls', debug=debug)
 
 
 class BasicParseTests(unittest.TestCase):
