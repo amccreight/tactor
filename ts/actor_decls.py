@@ -88,6 +88,11 @@ class ActorDecls:
         assert len(l) == 2
         self.addActor(l[0], l[1])
 
+    def addActors(self, decls):
+        assert isinstance(decls, ActorDecls)
+        for a, d in decls.actors.items():
+            self.addActor(a, d)
+
     def addMessage(self, loc, actorName, messageName, t, kind):
         assert actorName in self.actors
         actor = self.actors[actorName]
@@ -422,6 +427,28 @@ class MessageTests(unittest.TestCase):
                          "  A: {\n    M: any;\n  };\n" +
                          "  B: {\n    M: any;\n  };\n" +
                          "};\n")
+
+        # Basic tests for addActors
+        ads = ActorDecls()
+        ads.addActor("B", ActorDecl(Loc()))
+        ads.addMessage(Loc(), "B", "M", AnyType(), 0)
+        ads2 = ActorDecls()
+        ads.addActor("A", ActorDecl(Loc()))
+        ads.addMessage(Loc(), "A", "M", AnyType(), 0)
+        ads.addActor("C", ActorDecl(Loc()))
+        ads.addMessage(Loc(), "C", "M", AnyType(), 0)
+        ads.addActors(ads2)
+        self.assertEqual(json.loads(ads.toJSON()),
+                         {"A": {"M": ["any"]},
+                          "B": {"M": ["any"]},
+                          "C": {"M": ["any"]}})
+
+        ads = ActorDecls()
+        ads.addActor("A", ActorDecl(Loc()))
+        ads2 = ActorDecls()
+        ads2.addActor("A", ActorDecl(Loc()))
+        with self.assertRaisesRegex(ActorError, 'Multiple declarations of actor "A".'):
+            ads.addActors(ads2)
 
 
 if __name__ == "__main__":
