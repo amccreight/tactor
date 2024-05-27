@@ -69,6 +69,16 @@ class stringSerializer:
     def addLine(self, s):
         self.string += s + "\n"
 
+class fileSerializer:
+    def __init__(self, file):
+        self.file = file
+    def add(self, s):
+        self.file.write(s)
+    def addLine(self, s):
+        self.file.write(s)
+        self.file.write("\n")
+
+
 class ActorDecls:
     def __init__(self):
         self.actors = {}
@@ -124,6 +134,10 @@ class ActorDecls:
 
     def printJSON(self):
         self.serializeJSON(printSerializer())
+
+    def writeJSONToFile(self, f):
+        s = fileSerializer(f)
+        self.serializeJSON(s)
 
     def serializeTS(self, s):
         s.addLine("type MessageTypes = {")

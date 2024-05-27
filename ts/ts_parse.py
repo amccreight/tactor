@@ -109,7 +109,8 @@ class Tokenizer(object):
 class Parser(Tokenizer):
     def __init__(self, start, debug=False, lexer=None):
         Tokenizer.__init__(self, debug=debug, lexer=lexer)
-        self.parser = yacc.yacc(module = self, start=start, write_tables=False)
+        self.parser = yacc.yacc(module = self, start=start,
+                                debug=debug, write_tables=False)
 
     # Type declarations.
 

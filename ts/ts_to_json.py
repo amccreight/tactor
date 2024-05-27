@@ -4,25 +4,26 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# Translating the pseudo-TypeScript for message actor types to the JSON output.
+# Translate the pseudo-TypeScript for JS actor types to the JSON encoding.
 
 import argparse
+import sys
 from ts_parse import ActorDeclsParser
-from actor_decls import ActorDecls
-
-
-# XXX Need to take a list of files on the command line.
+from actor_decls import ActorDecls, ActorError
 
 
 def parseFiles(filenames):
     parser = ActorDeclsParser()
     actorDecls = ActorDecls()
 
-    # XXX Catch any exceptions and make a nice print out and then stop?
     for filename in filenames:
-        with open(filename, 'w', encoding='utf8') as f:
-            newDecls = parser.parse(f.read(), filename)
-            actorDecls.addActors(newDecls)
+        with open(filename, 'r', encoding='utf8') as f:
+            try:
+                newDecls = parser.parse(f.read(), filename)
+                actorDecls.addActors(newDecls)
+            except ActorError as e:
+                print(e, file=sys.stderr)
+                return None
 
     return actorDecls
 
@@ -42,6 +43,9 @@ def main():
     decls = parseFiles(args.files)
     if decls is None:
         return
+
+    with open(args.output, 'w', encoding='utf8') as f:
+        decls.writeJSONToFile(f)
 
 
 if __name__ == "__main__":
