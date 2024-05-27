@@ -16,8 +16,8 @@
 import argparse
 import re
 import sys
-from ts_parse import parseType, ParseError
-from actor_decls import ActorDecls
+from ts_parse import TypeParser
+from actor_decls import ActorDecls, ActorError
 
 messageKindPatt = 'Message|Query|QueryResolve|QueryReject'
 typePatt = re.compile(f'JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) KIND ({messageKindPatt}) TYPE (.+)$')
@@ -45,6 +45,8 @@ def kindToEnum(k):
 
 def lookAtActors(args):
     sys.stdin.reconfigure(encoding='latin1')
+
+    parser = TypeParser()
 
     actors = {}
 
@@ -94,11 +96,11 @@ def lookAtActors(args):
             continue
 
         try:
-            ty = parseType(typeRaw)
+            ty = parser.parse(typeRaw)
             if ty not in currTypes:
                 currTypes.append(ty)
-        except ParseError as p:
-            print(p, file=sys.stderr)
+        except ActorError as e:
+            print(e, file=sys.stderr)
             print(f'  while parsing: {typeRaw}', file=sys.stderr)
             return
 

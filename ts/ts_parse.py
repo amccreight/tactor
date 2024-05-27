@@ -14,14 +14,6 @@ import unittest
 import re
 
 
-class ParseError(Exception):
-    def __init__(self, loc, msg):
-        self.loc = loc
-        self.error = f"{str(loc)}: {msg}"
-
-    def __str__(self):
-        return self.error
-
 def _safeLinenoValue(t):
     lineno, value = 0, "???"
     if hasattr(t, "lineno"):
@@ -67,9 +59,9 @@ class Tokenizer(object):
         r"-?\d+"
         i = int(t.value)
         if i < -2147483648:
-            raise ParseError(t.lexpos, f"Integer {i} is too small")
+            raise ActorError(t.lexpos, f"Integer {i} is too small")
         if i > 2147483647:
-            raise ParseError(t.lexpos, f"Integer {i} is too large")
+            raise ActorError(t.lexpos, f"Integer {i} is too large")
         t.value = i
         return t
 
@@ -104,7 +96,7 @@ class Tokenizer(object):
     t_ignore = " \t\r"
 
     def t_error(self, t):
-        raise ParseError(t.lexpos, f'Bad character {t.value[0]}')
+        raise ActorError(t.lexpos, f'Bad character {t.value[0]}')
 
     def __init__(self, debug=False, lexer=None):
         if lexer:
@@ -231,10 +223,10 @@ class Parser(Tokenizer):
     def p_TopLevelActor(self, p):
         """TopLevelActor : ID ID '=' '{' ActorDecls '}' ';'"""
         if p[1] != "type":
-            raise ParseError(self.locFromTok(p, 1),
+            raise ActorError(self.locFromTok(p, 1),
                             f'Expected actor declarations to start with "type", not "{p[1]}"')
         if p[2] != "MessageTypes":
-            raise ParseError(self.locFromTok(p, 2),
+            raise ActorError(self.locFromTok(p, 2),
                             f'Expected top level type name to be "MessageTypes", not "{p[2]}"')
         p[0] = p[5]
 
@@ -265,7 +257,7 @@ class Parser(Tokenizer):
             p[0] = [actorName, actorDecl]
         else:
             [loc, kind, messageName, loc0] = actorDecl
-            raise ParseError(loc,
+            raise ActorError(loc,
                             f'Multiple declarations of actor "{actorName}"\'s ' +
                             f'{kindToStr(kind)} message "{messageName}".' +
                             f' Previous was at {loc0}')
@@ -322,7 +314,7 @@ class Parser(Tokenizer):
                     # (_: never) => never;
                     # We could treat this as doing nothing, but that doesn't seem
                     # like it is worth the hassle.
-                    raise ParseError(self.locFromTok(p, 1),
+                    raise ActorError(self.locFromTok(p, 1),
                                     'Message type must have a non-"never" type '
                                     'to either the left or right of the arrow')
                 # (_: never) => T
@@ -336,7 +328,7 @@ class Parser(Tokenizer):
                 p[0] = [t1, 1]
                 return
             # (_: T1) => T2
-            raise ParseError(self.locFromTok(p, 1),
+            raise ActorError(self.locFromTok(p, 1),
                             'Message type must have "never" to either the left ' +
                             'or right of the arrow')
 
@@ -345,7 +337,7 @@ class Parser(Tokenizer):
 
     def p_error(self, p):
         lineno, value = _safeLinenoValue(p)
-        raise ParseError(Loc(self.currFilename, lineno),
+        raise ActorError(Loc(self.currFilename, lineno),
                         f'Syntax error near "{value}"')
 
     def locFromTok(self, p, num):
@@ -379,7 +371,7 @@ class BasicParseTests(unittest.TestCase):
         self.assertEqual(s1, str(s2))
 
     def parseAndCheckFail(self, s, e):
-        with self.assertRaisesRegex(ParseError, re.escape(e)):
+        with self.assertRaisesRegex(ActorError, re.escape(e)):
             self.parser.parse(s)
 
     def test_basic(self):
@@ -401,7 +393,7 @@ class TestTypePrinting(unittest.TestCase):
         self.assertEqual(t.jsonStr(), json)
 
     def checkFail(self, s, error):
-        with self.assertRaisesRegex(ParseError, re.escape(error)):
+        with self.assertRaisesRegex(ActorError, re.escape(error)):
             self.parser.parse(s)
 
     def test_basic(self):
@@ -464,10 +456,6 @@ class ParseActorDeclsTests(unittest.TestCase):
     def parseTest(self, x, y):
         self.assertEqual(json.loads(self.parser.parse(x, "test").toJSON()), y)
 
-    def parseAndCheckFailP(self, s, e):
-        with self.assertRaisesRegex(ParseError, re.escape(e)):
-            self.parser.parse(s, "test")
-
     def parseAndCheckFail(self, s, e):
         with self.assertRaisesRegex(ActorError, re.escape(e)):
             self.parser.parse(s, "test")
@@ -500,12 +488,12 @@ class ParseActorDeclsTests(unittest.TestCase):
 
     def test_basic_fail(self):
         e = 'test:3: Expected actor declarations to start with "type", not "e"'
-        self.parseAndCheckFailP("\n\ne f = { a: { m: any }; };", e)
+        self.parseAndCheckFail("\n\ne f = { a: { m: any }; };", e)
         e = 'test:2: Expected top level type name to be "MessageTypes", not "e"'
-        self.parseAndCheckFailP("type\n e = { a: { m: any }; };", e)
+        self.parseAndCheckFail("type\n e = { a: { m: any }; };", e)
         # I'm not sure why this confuses it so much.
-        self.parseAndCheckFailP("\n\neee", 'test:0: Syntax error near "???"')
-        self.parseAndCheckFailP("\n\n1234", 'test:3: Syntax error near "1234"')
+        self.parseAndCheckFail("\n\neee", 'test:0: Syntax error near "???"')
+        self.parseAndCheckFail("\n\n1234", 'test:3: Syntax error near "1234"')
 
         # Multiple actor declarations, with various ways of writing actor names.
         s = 'type MessageTypes =\n { A: { M: any };\n A: { M: any}; };'
@@ -521,22 +509,22 @@ class ParseActorDeclsTests(unittest.TestCase):
         # Check various errors related to message kinds.
         s = 'type MessageTypes = \n{ A: { M: (_: any) => any }; };'
         e = 'test:2: Message type must have "never" to either the left or right of the arrow'
-        self.parseAndCheckFailP(s, e)
+        self.parseAndCheckFail(s, e)
         s = 'type MessageTypes = \n{ A: { M: (_: never) => never }; };'
         e = 'test:2: Message type must have a non-"never" type to either the left or right of the arrow'
-        self.parseAndCheckFailP(s, e)
+        self.parseAndCheckFail(s, e)
         s = 'type MessageTypes =\n { A: { M: any\n , M: any; };\n };'
         e = ('test:3: Multiple declarations of actor "A"\'s ' +
              'sendAsyncMessage() message "M". Previous was at test:2')
-        self.parseAndCheckFailP(s, e)
+        self.parseAndCheckFail(s, e)
         s = 'type MessageTypes =\n { A: { M: (_: any)=>never \n , M: (_: any)=>never; };\n };'
         e = ('test:3: Multiple declarations of actor "A"\'s ' +
              'sendQuery() message "M". Previous was at test:2')
-        self.parseAndCheckFailP(s, e)
+        self.parseAndCheckFail(s, e)
         s = 'type MessageTypes =\n { A: { M: (_: never)=>any \n , M: (_: never)=>any; };\n };'
         e = ('test:3: Multiple declarations of actor "A"\'s ' +
              'query reply message "M". Previous was at test:2')
-        self.parseAndCheckFailP(s, e)
+        self.parseAndCheckFail(s, e)
 
 
 if __name__ == "__main__":
