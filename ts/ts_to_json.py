@@ -27,6 +27,18 @@ def parseFiles(filenames):
 
     return actorDecls
 
+def translateFiles(files, output):
+    decls = parseFiles(files)
+    if decls is None:
+        return
+
+    with open(output, 'w', encoding='utf8') as f:
+        decls.writeJSONToFile(f)
+
+# XXX For use by our current moz.build shim.
+def translateFile(output, file):
+    translateFiles([file], output)
+
 def parseArgs():
     parser = argparse.ArgumentParser(description=
       "Translate multiple files containing TypeScript-style JS actor " +
@@ -40,13 +52,7 @@ def parseArgs():
 
 def main():
     args = parseArgs()
-    decls = parseFiles(args.files)
-    if decls is None:
-        return
-
-    with open(args.output, 'w', encoding='utf8') as f:
-        decls.writeJSONToFile(f)
-
+    translateFiles(args.files, args.output)
 
 if __name__ == "__main__":
     main()
