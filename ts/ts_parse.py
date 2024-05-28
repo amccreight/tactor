@@ -120,10 +120,13 @@ class Parser(Tokenizer):
         | NeverType
         | ObjectType
         | ArrayType
+        | '|' JSType
         | JSType '|' JSType
         | '(' JSType ')'"""
         if len(p) == 2:
             p[0] = p[1]
+        elif len(p) == 3:
+            p[0] = p[2]
         else:
             assert len(p) == 4
             if p[1] == '(':
@@ -393,6 +396,12 @@ class TestTypePrinting(unittest.TestCase):
         self.assertEqual(s, str(t))
         self.assertEqual(t.jsonStr(), json)
 
+    # This doesn't check that the string output is the same as the input.
+    # This is needed because we drop the unary union.
+    def checkNoString(self, s, json):
+        t = self.parser.parse(s)
+        self.assertEqual(t.jsonStr(), json)
+
     def checkFail(self, s, error):
         with self.assertRaisesRegex(ActorError, re.escape(error)):
             self.parser.parse(s)
@@ -427,6 +436,9 @@ class TestTypePrinting(unittest.TestCase):
         self.check("Array<any> | Array<never>", '["union", ["array", "any"], ["array", "never"]]')
         self.check("any | string | undefined",
                    '["union", ["union", "any", "string"], "undefined"]')
+        # unary union, which seems to be used by Prettier.
+        self.checkNoString("| any", '"any"')
+        self.checkNoString("| any | boolean", '["union", "any", "boolean"]')
 
         # object
         self.check("{}", '["object"]')
