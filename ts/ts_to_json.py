@@ -32,8 +32,7 @@ def translateFiles(files, output):
     if decls is None:
         return
 
-    with open(output, 'w', encoding='utf8') as f:
-        decls.writeJSONToFile(f)
+    decls.writeJSONToFile(output)
 
 # XXX For use by our current moz.build shim.
 def translateFile(output, file):
@@ -52,7 +51,8 @@ def parseArgs():
 
 def main():
     args = parseArgs()
-    translateFiles(args.files, args.output)
+    with open(args.output, 'w', encoding='utf8') as f:
+        translateFiles(args.files, f)
 
 if __name__ == "__main__":
     main()
