@@ -98,7 +98,7 @@ identifierRe = re.compile("(?!\\d)[\\w$]+")
 
 class JSPropertyType:
     def __init__(self, n, t, opt):
-        assert isinstance(n, str) or isinstance(n, int)
+        assert isinstance(n, (int, str))
         assert isinstance(t, JSType)
         assert isinstance(opt, bool)
         self.name = n
@@ -265,11 +265,12 @@ class UnionType(JSType):
 
     def absorbNonUnion(self, t2):
         assert not isinstance(t2, UnionType)
-        for t in self.types:
+        for i in range(len(self.types)):
+            t = self.types[i]
             assert not isinstance(t, UnionType)
             t2New = tryUnionWith(t, t2)
             if t2New is not None:
-                t = t2New
+                self.types[i] = t2New
                 return
         self.types.append(t2)
 

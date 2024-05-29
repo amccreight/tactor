@@ -78,7 +78,6 @@ def lookAtActors(args):
         if not tp:
             continue
 
-        tp.group(1) == "Send"
         actorName = tp.group(2)
         messageName = tp.group(3)
         kind = kindToEnum(tp.group(4))

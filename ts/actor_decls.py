@@ -345,10 +345,10 @@ class MessageTypes:
     # messageName must include any indentation.
     def serializeTS(self, s, messageName, realTS=True):
         assert len(self.types) <= 4
-        for [i, t] in enumerate(self.types):
-            if t is None:
+        for [i, t0] in enumerate(self.types):
+            if t0 is None:
                 continue
-            t = t[1]
+            t = t0[1]
             if i == 3:
                 # For the TS output, never include the QueryReject type.
                 # Instead, make it implicitly treated as "any", if a
