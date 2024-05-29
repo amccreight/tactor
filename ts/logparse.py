@@ -16,17 +16,20 @@
 import argparse
 import re
 import sys
-from ts_parse import TypeParser
-from actor_decls import ActorDecls, ActorError
 
-messageKindPatt = 'Message|Query|QueryResolve|QueryReject'
-typePatt = re.compile(f'JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) KIND ({messageKindPatt}) TYPE (.+)$')
+from actor_decls import ActorDecls, ActorError
+from ts_parse import TypeParser
+
+messageKindPatt = "Message|Query|QueryResolve|QueryReject"
+typePatt = re.compile(
+    f"JSIT (Send|Recv) ACTOR ([^ ]+) MESSAGE ([^ ]+) KIND ({messageKindPatt}) TYPE (.+)$"
+)
 # This can also be CONTENTS instead of TYPE, and then it will have the result
 # of toSource(), but I'm not logging that right now so don't worry about it.
 
 # Ideally, we'd report the file and test these warnings happened during.
-fallbackWarningPatt = re.compile('WARNING: AnyToJSIPCValue fallback for (.+): file')
-failedToSerializeWarningPatt = re.compile('WARNING: Failed to serialize')
+fallbackWarningPatt = re.compile("WARNING: AnyToJSIPCValue fallback for (.+): file")
+failedToSerializeWarningPatt = re.compile("WARNING: Failed to serialize")
 
 
 def kindToEnum(k):
@@ -43,8 +46,9 @@ def kindToEnum(k):
     assert len(k) == 11
     return 3
 
+
 def lookAtActors(args):
-    sys.stdin.reconfigure(encoding='latin1')
+    sys.stdin.reconfigure(encoding="latin1")
 
     parser = TypeParser()
 
@@ -74,7 +78,7 @@ def lookAtActors(args):
         if not tp:
             continue
 
-        isSend = tp.group(1) == "Send"
+        tp.group(1) == "Send"
         actorName = tp.group(2)
         messageName = tp.group(3)
         kind = kindToEnum(tp.group(4))
@@ -101,7 +105,7 @@ def lookAtActors(args):
                 currTypes.append(ty)
         except ActorError as e:
             print(e, file=sys.stderr)
-            print(f'  while parsing: {typeRaw}', file=sys.stderr)
+            print(f"  while parsing: {typeRaw}", file=sys.stderr)
             return
 
     # Union together the types from different instances of each message.
@@ -124,7 +128,7 @@ def lookAtActors(args):
         print()
         print("****FAILURES****")
         for [a, m] in failedType:
-            print(f'Actor: {a}; Message: {m}')
+            print(f"Actor: {a}; Message: {m}")
         print()
 
     print("=========================")
@@ -138,13 +142,10 @@ def lookAtActors(args):
     print()
     print(f"Failed to serialize count: {failedSerialize}")
 
+
 parser = argparse.ArgumentParser()
-parser.add_argument("--json",
-                    help="Print output as JSON.",
-                    action="store_true")
-parser.add_argument("--ts",
-                    help="Print output as TypeScript.",
-                    action="store_true")
+parser.add_argument("--json", help="Print output as JSON.", action="store_true")
+parser.add_argument("--ts", help="Print output as TypeScript.", action="store_true")
 args = parser.parse_args()
 
 lookAtActors(args)

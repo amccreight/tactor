@@ -66,6 +66,7 @@ primitiveTypes = [
 ]
 primRegexp = re.compile("|".join(primitiveTypes))
 
+
 class PrimitiveType(JSType):
     def __init__(self, name):
         assert primRegexp.fullmatch(name)
@@ -92,7 +93,8 @@ class PrimitiveType(JSType):
 
 
 # This should be the same as the regexp from t_ID in ts_parse.py.
-identifierRe = re.compile("(?!\d)[\w$]+")
+identifierRe = re.compile("(?!\\d)[\\w$]+")
+
 
 class JSPropertyType:
     def __init__(self, n, t, opt):
@@ -104,8 +106,9 @@ class JSPropertyType:
         self.optional = opt
 
     def __eq__(self, o):
-        return (self.name == o.name and self.type == o.type and
-                self.optional == o.optional)
+        return (
+            self.name == o.name and self.type == o.type and self.optional == o.optional
+        )
 
     def __lt__(self, o):
         if isinstance(self.name, str):
@@ -164,7 +167,7 @@ class ObjectType(JSType):
         l = []
         for p in self.types:
             opt = ", true" if p.optional else ""
-            l.append(f'[{p.jsonNameStr()}, {p.type.jsonStr()}{opt}]')
+            l.append(f"[{p.jsonNameStr()}, {p.type.jsonStr()}{opt}]")
         return f'["object", {", ".join(l)}]'
 
     def __lt__(self, o):
@@ -275,12 +278,12 @@ class UnionType(JSType):
 def tryUnionWith(t1, t2):
     # Check a few "wildcard" cases on t2.
     if isinstance(t2, AnyType):
-      return t2
+        return t2
     if isinstance(t2, NeverType):
-      return t1
+        return t1
     if isinstance(t2, UnionType):
-      t2.absorb(t1)
-      return t2
+        t2.absorb(t1)
+        return t2
 
     # Now deal with the remaining cases for t1.
     if isinstance(t1, AnyType):
@@ -309,12 +312,14 @@ def tryUnionWith(t1, t2):
         return t1
     assert False
 
+
 # Reimplementation of JSActorMessageType::UnionWith()
 def unionWith(t1, t2):
     t3 = tryUnionWith(t1, t2)
     if not t3 is None:
         return t3
     return UnionType([t1, t2])
+
 
 def objectAbsorb(t1, t2):
     assert isinstance(t1, ObjectType)
@@ -337,7 +342,9 @@ def objectAbsorb(t1, t2):
             # The leading fields have the same name, so merge them.
             p.type = unionWith(p.type, t2.types[otherIndex].type)
             stringFieldTypes.append(p)
-            stringFieldTypes[-1].optional = stringFieldTypes[-1].optional or t2.types[otherIndex].optional
+            stringFieldTypes[-1].optional = (
+                stringFieldTypes[-1].optional or t2.types[otherIndex].optional
+            )
             otherIndex += 1
         else:
             # p is smaller, so move it over.
@@ -355,26 +362,54 @@ def objectAbsorb(t1, t2):
 
 class TestUnion(unittest.TestCase):
     def test_basic(self):
-        t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False),
-                         JSPropertyType("y", PrimitiveType("number"), False)])
+        t1 = ObjectType(
+            [
+                JSPropertyType("x", PrimitiveType("undefined"), False),
+                JSPropertyType("y", PrimitiveType("number"), False),
+            ]
+        )
         t2 = ObjectType([JSPropertyType("x", PrimitiveType("boolean"), False)])
-        self.assertEqual(str(tryUnionWith(t1, t2)), "{x: undefined | boolean; y?: number}")
+        self.assertEqual(
+            str(tryUnionWith(t1, t2)), "{x: undefined | boolean; y?: number}"
+        )
 
         t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False)])
-        t2 = ObjectType([JSPropertyType("a", PrimitiveType("number"), False),
-                         JSPropertyType("x", AnyType(), False)])
+        t2 = ObjectType(
+            [
+                JSPropertyType("a", PrimitiveType("number"), False),
+                JSPropertyType("x", AnyType(), False),
+            ]
+        )
         self.assertEqual(str(tryUnionWith(t1, t2)), "{a?: number; x: any}")
 
-        t1 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
-                                                        PrimitiveType("string")]), False)])
-        t2 = ObjectType([JSPropertyType("x", UnionType([PrimitiveType("null"),
-                                                        PrimitiveType("string")]), False)])
+        t1 = ObjectType(
+            [
+                JSPropertyType(
+                    "x",
+                    UnionType([PrimitiveType("null"), PrimitiveType("string")]),
+                    False,
+                )
+            ]
+        )
+        t2 = ObjectType(
+            [
+                JSPropertyType(
+                    "x",
+                    UnionType([PrimitiveType("null"), PrimitiveType("string")]),
+                    False,
+                )
+            ]
+        )
         self.assertEqual(str(tryUnionWith(t1, t2)), "{x: null | string}")
 
         self.assertEqual(str(ArrayType(NeverType())), "Array<never>")
 
-        self.assertEqual(str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number")
-        self.assertEqual(str(tryUnionWith(PrimitiveType("number"), NeverType())), "number")
+        self.assertEqual(
+            str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number"
+        )
+        self.assertEqual(
+            str(tryUnionWith(PrimitiveType("number"), NeverType())), "number"
+        )
 
 
 if __name__ == "__main__":

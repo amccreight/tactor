@@ -8,8 +8,9 @@
 
 import argparse
 import sys
-from ts_parse import ActorDeclsParser
+
 from actor_decls import ActorDecls, ActorError
+from ts_parse import ActorDeclsParser
 
 
 def parseFiles(filenames):
@@ -17,7 +18,7 @@ def parseFiles(filenames):
     actorDecls = ActorDecls()
 
     for filename in filenames:
-        with open(filename, 'r', encoding='utf8') as f:
+        with open(filename, "r", encoding="utf8") as f:
             try:
                 newDecls = parser.parse(f.read(), filename)
                 actorDecls.addActors(newDecls)
@@ -27,6 +28,7 @@ def parseFiles(filenames):
 
     return actorDecls
 
+
 def translateFiles(files, output):
     decls = parseFiles(files)
     if decls is None:
@@ -34,25 +36,40 @@ def translateFiles(files, output):
 
     decls.writeJSONToFile(output)
 
+
 # XXX For use by our current moz.build shim.
 def translateFile(output, file):
     translateFiles([file], output)
 
+
 def parseArgs():
-    parser = argparse.ArgumentParser(description=
-      "Translate multiple files containing TypeScript-style JS actor " +
-      "message types into a single JSON encoded file for use by Firefox")
-    parser.add_argument("files", type=str, metavar="IN_FILE", nargs="+",
-                        help="TypeScript-style source file.")
-    parser.add_argument("--output", "-o", type=str, metavar="OUT_FILE",
-                        required=True,
-                        help="File location for the JSON output.")
+    parser = argparse.ArgumentParser(
+        description="Translate multiple files containing TypeScript-style JS actor "
+        + "message types into a single JSON encoded file for use by Firefox"
+    )
+    parser.add_argument(
+        "files",
+        type=str,
+        metavar="IN_FILE",
+        nargs="+",
+        help="TypeScript-style source file.",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        metavar="OUT_FILE",
+        required=True,
+        help="File location for the JSON output.",
+    )
     return parser.parse_args()
+
 
 def main():
     args = parseArgs()
-    with open(args.output, 'w', encoding='utf8') as f:
+    with open(args.output, "w", encoding="utf8") as f:
         translateFiles(args.files, f)
+
 
 if __name__ == "__main__":
     main()

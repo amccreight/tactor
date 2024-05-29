@@ -7,10 +7,11 @@
 # Representation of actor message types.
 
 import json
-import unittest
 import re
 import sys
-from ts import identifierRe, AnyType, unionWith
+import unittest
+
+from ts import AnyType, identifierRe, unionWith
 
 
 # Representation of a source file location. This is needed so we can report
@@ -30,6 +31,7 @@ class Loc:
     def __eq__(self, o):
         return self.filename == o.filename and self.lineno == o.lineno
 
+
 class ActorError(Exception):
     def __init__(self, loc, msg):
         self.loc = loc
@@ -45,6 +47,7 @@ def quoteNonIdentifier(name):
     else:
         return '"' + name + '"'
 
+
 def kindToStr(kind):
     if kind == 0:
         return "sendAsyncMessage()"
@@ -55,25 +58,33 @@ def kindToStr(kind):
     assert kind == 3
     return "query reject"
 
+
 class printSerializer:
     def add(self, s):
         sys.stdout.write(s)
+
     def addLine(self, s):
         print(s)
+
 
 class stringSerializer:
     def __init__(self):
         self.string = ""
+
     def add(self, s):
         self.string += s
+
     def addLine(self, s):
         self.string += s + "\n"
+
 
 class fileSerializer:
     def __init__(self, file):
         self.file = file
+
     def add(self, s):
         self.file.write(s)
+
     def addLine(self, s):
         self.file.write(s)
         self.file.write("\n")
@@ -84,12 +95,14 @@ class ActorDecls:
         self.actors = {}
 
     def addActor(self, actorName, actorDecl):
-        assert "\"" not in actorName
+        assert '"' not in actorName
         if actorName in self.actors:
             loc0 = self.actors[actorName].loc
-            raise ActorError(actorDecl.loc,
-                             f'Multiple declarations of actor "{actorName}".' +
-                             f' Previous was at {loc0}')
+            raise ActorError(
+                actorDecl.loc,
+                f'Multiple declarations of actor "{actorName}".'
+                + f" Previous was at {loc0}",
+            )
         self.actors[actorName] = actorDecl
 
     # Helper for use by the parser.
@@ -108,10 +121,12 @@ class ActorDecls:
         actor = self.actors[actorName]
         if not actor.addMessage(loc, messageName, t, kind):
             loc0 = actor.existingMessageKindLoc(messageName, kind)
-            raise ActorError(loc,
-                             f'Multiple declarations of actor "{actorName}"\'s ' +
-                             f'{kindToStr(kind)} message "{messageName}".' +
-                             f' Previous was at {loc0}')
+            raise ActorError(
+                loc,
+                f'Multiple declarations of actor "{actorName}"\'s '
+                + f'{kindToStr(kind)} message "{messageName}".'
+                + f" Previous was at {loc0}",
+            )
 
     def serializeJSON(self, s):
         s.addLine("{")
@@ -143,7 +158,7 @@ class ActorDecls:
         s.addLine("type MessageTypes = {")
         for actorName in sorted(list(self.actors.keys())):
             messages = self.actors[actorName]
-            s.add(f'  {quoteNonIdentifier(actorName)}: ')
+            s.add(f"  {quoteNonIdentifier(actorName)}: ")
             messages.serializeTS(s, "  ")
         s.addLine("};")
 
@@ -160,9 +175,9 @@ class ActorDecls:
     def serializeText(self, s):
         for actorName in sorted(list(self.actors.keys())):
             messages = self.actors[actorName]
-            s.addLine(f'{actorName}')
+            s.addLine(f"{actorName}")
             messages.serializeText(s, "")
-            s.addLine('')
+            s.addLine("")
 
     def printText(self):
         self.serializeText(printSerializer())
@@ -227,7 +242,7 @@ class ActorDecl:
         self.messages = {}
 
     def addMessage(self, loc, messageName, t, kind):
-        assert "\"" not in messageName
+        assert '"' not in messageName
         if messageName not in self.messages:
             self.messages[messageName] = MessageTypes(loc, t, kind)
             return True
@@ -251,7 +266,7 @@ class ActorDecl:
                 firstMessage = False
             else:
                 s.addLine(",")
-            assert "\"" not in messageName
+            assert '"' not in messageName
             s.add(indent + f'  "{messageName}": ')
             self.messages[messageName].serializeJSON(s)
         s.addLine("")
@@ -265,7 +280,7 @@ class ActorDecl:
     def serializeTS(self, s, indent):
         s.addLine("{")
         for messageName in sorted(list(self.messages.keys())):
-            assert "\"" not in messageName
+            assert '"' not in messageName
             name = indent + "  " + quoteNonIdentifier(messageName)
             self.messages[messageName].serializeTS(s, name)
         s.addLine(indent + "};")
@@ -277,7 +292,7 @@ class ActorDecl:
 
     def serializeText(self, s, indent):
         for messageName in sorted(list(self.messages.keys())):
-            assert "\"" not in messageName
+            assert '"' not in messageName
             name = indent + "  " + messageName
             self.messages[messageName].serializeTS(s, name, False)
 
@@ -328,7 +343,7 @@ class MessageTypes:
         return s.string
 
     # messageName must include any indentation.
-    def serializeTS(self, s, messageName, realTS = True):
+    def serializeTS(self, s, messageName, realTS=True):
         assert len(self.types) <= 4
         for [i, t] in enumerate(self.types):
             if t is None:
@@ -341,28 +356,28 @@ class MessageTypes:
                 if realTS or t == AnyType():
                     continue
             if realTS:
-                s.add(f'{messageName}: ')
+                s.add(f"{messageName}: ")
             else:
-                s.add(f'{messageName} : ')
+                s.add(f"{messageName} : ")
             if i == 0:
                 # Message
-                s.add(f'{t}')
+                s.add(f"{t}")
             elif i == 1:
                 # Query
-                s.add(f'(_: {t}) => never')
+                s.add(f"(_: {t}) => never")
             elif i == 2:
                 # QueryResolve
-                s.add(f'(_: never) => {t}')
+                s.add(f"(_: never) => {t}")
             else:
                 assert i == 3
                 assert not realTS
                 # QueryReject
-                s.add(f'(reject: never) => {t}')
+                s.add(f"(reject: never) => {t}")
 
             if realTS:
-                s.addLine(';')
+                s.addLine(";")
             else:
-                s.addLine('')
+                s.addLine("")
 
     def toTS(self, messageName):
         s = stringSerializer()
@@ -375,43 +390,49 @@ class MessageTests(unittest.TestCase):
         mt = MessageTypes(Loc(), AnyType(), 0)
         self.assertEqual(mt.rawTypes(), [AnyType()])
         self.assertEqual(json.loads(mt.toJSON()), ["any"])
-        self.assertEqual(mt.toTS("x"), 'x: any;\n')
+        self.assertEqual(mt.toTS("x"), "x: any;\n")
         self.assertEqual(mt.addType(Loc(), AnyType(), 2), True)
         self.assertEqual(mt.rawTypes(), [AnyType(), None, AnyType()])
         self.assertEqual(json.loads(mt.toJSON()), ["any", "never", "any"])
-        self.assertEqual(mt.toTS("x"), 'x: any;\nx: (_: never) => any;\n')
+        self.assertEqual(mt.toTS("x"), "x: any;\nx: (_: never) => any;\n")
         self.assertEqual(mt.addType(Loc(), AnyType(), 2), False)
         self.assertEqual(mt.addType(Loc(), AnyType(), 1), True)
         self.assertEqual(mt.rawTypes(), [AnyType(), AnyType(), AnyType()])
         self.assertEqual(json.loads(mt.toJSON()), ["any", "any", "any"])
-        self.assertEqual(mt.toTS("x"),
-                         'x: any;\nx: (_: any) => never;\nx: (_: never) => any;\n')
+        self.assertEqual(
+            mt.toTS("x"), "x: any;\nx: (_: any) => never;\nx: (_: never) => any;\n"
+        )
 
         mt = MessageTypes(Loc(), AnyType(), 2)
         self.assertEqual(mt.rawTypes(), [None, None, AnyType()])
         self.assertEqual(json.loads(mt.toJSON()), ["never", "never", "any"])
-        self.assertEqual(mt.toTS("x"), 'x: (_: never) => any;\n')
+        self.assertEqual(mt.toTS("x"), "x: (_: never) => any;\n")
         # You can add a QueryReject kind, but we don't print it as JSON or TS.
         self.assertEqual(mt.addType(Loc(), AnyType(), 3), True)
         self.assertEqual(mt.rawTypes(), [None, None, AnyType(), AnyType()])
         self.assertEqual(json.loads(mt.toJSON()), ["never", "never", "any"])
-        self.assertEqual(mt.toTS("x"), 'x: (_: never) => any;\n')
+        self.assertEqual(mt.toTS("x"), "x: (_: never) => any;\n")
 
     def test_messageDecls(self):
         ad = ActorDecl(Loc())
         self.assertEqual(ad.addMessage(Loc(), "M2", AnyType(), 0), True)
         self.assertEqual(json.loads(ad.toJSON()), {"M2": ["any"]})
-        self.assertEqual(ad.toTS(), '{\n  M2: any;\n};\n')
+        self.assertEqual(ad.toTS(), "{\n  M2: any;\n};\n")
         self.assertEqual(ad.addMessage(Loc(), "M1", AnyType(), 2), True)
-        self.assertEqual(json.loads(ad.toJSON()),
-                         {"M1": ["never", "never", "any"], "M2": ["any"]})
-        self.assertEqual(ad.toTS(), '{\n  M1: (_: never) => any;\n  M2: any;\n};\n')
+        self.assertEqual(
+            json.loads(ad.toJSON()), {"M1": ["never", "never", "any"], "M2": ["any"]}
+        )
+        self.assertEqual(ad.toTS(), "{\n  M1: (_: never) => any;\n  M2: any;\n};\n")
         # Adding a message kind twice fails.
         self.assertEqual(ad.addMessage(Loc(), "M2", AnyType(), 0), False)
         self.assertEqual(ad.addMessage(Loc(), "M1", AnyType(), 1), True)
-        self.assertEqual(json.loads(ad.toJSON()),
-                         {"M1": ["never", "any", "any"], "M2": ["any"]})
-        self.assertEqual(ad.toTS(), '{\n  M1: (_: any) => never;\n  M1: (_: never) => any;\n  M2: any;\n};\n')
+        self.assertEqual(
+            json.loads(ad.toJSON()), {"M1": ["never", "any", "any"], "M2": ["any"]}
+        )
+        self.assertEqual(
+            ad.toTS(),
+            "{\n  M1: (_: any) => never;\n  M1: (_: never) => any;\n  M2: any;\n};\n",
+        )
 
         # Name that needs quotes.
         ad = ActorDecl(Loc())
@@ -429,18 +450,20 @@ class MessageTests(unittest.TestCase):
         ads.addMessage(Loc(), "B", "M", AnyType(), 0)
         self.assertEqual(json.loads(ads.toJSON()), {"B": {"M": ["any"]}})
         e = 'Multiple declarations of actor "B"\'s sendAsyncMessage() message "M"'
-        with self.assertRaisesRegex(ActorError,
-                                    re.escape(e)):
+        with self.assertRaisesRegex(ActorError, re.escape(e)):
             ads.addMessage(Loc(), "B", "M", AnyType(), 0)
         ads.addActor("A", ActorDecl(Loc()))
         ads.addMessage(Loc(), "A", "M", AnyType(), 0)
-        self.assertEqual(json.loads(ads.toJSON()),
-                         {"A": {"M": ["any"]}, "B": {"M": ["any"]}})
-        self.assertEqual(ads.toTS(),
-                         "type MessageTypes = {\n" +
-                         "  A: {\n    M: any;\n  };\n" +
-                         "  B: {\n    M: any;\n  };\n" +
-                         "};\n")
+        self.assertEqual(
+            json.loads(ads.toJSON()), {"A": {"M": ["any"]}, "B": {"M": ["any"]}}
+        )
+        self.assertEqual(
+            ads.toTS(),
+            "type MessageTypes = {\n"
+            + "  A: {\n    M: any;\n  };\n"
+            + "  B: {\n    M: any;\n  };\n"
+            + "};\n",
+        )
 
         # Basic tests for addActors
         ads = ActorDecls()
@@ -452,10 +475,10 @@ class MessageTests(unittest.TestCase):
         ads.addActor("C", ActorDecl(Loc()))
         ads.addMessage(Loc(), "C", "M", AnyType(), 0)
         ads.addActors(ads2)
-        self.assertEqual(json.loads(ads.toJSON()),
-                         {"A": {"M": ["any"]},
-                          "B": {"M": ["any"]},
-                          "C": {"M": ["any"]}})
+        self.assertEqual(
+            json.loads(ads.toJSON()),
+            {"A": {"M": ["any"]}, "B": {"M": ["any"]}, "C": {"M": ["any"]}},
+        )
 
         ads = ActorDecls()
         ads.addActor("A", ActorDecl(Loc()))
