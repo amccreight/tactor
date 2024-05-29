@@ -79,6 +79,11 @@ def lookAtActors(args):
             continue
 
         actorName = tp.group(2)
+
+        # XXX TEMPORARY workaround. This should be filtered while logging.
+        if actorName == "DevToolsProcess":
+            continue
+
         messageName = tp.group(3)
         kind = kindToEnum(tp.group(4))
 
