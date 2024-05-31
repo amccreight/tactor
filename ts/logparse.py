@@ -28,8 +28,10 @@ typePatt = re.compile(
 # of toSource(), but I'm not logging that right now so don't worry about it.
 
 # Ideally, we'd report the file and test these warnings happened during.
-fallbackWarningPatt = re.compile("WARNING: AnyToJSIPCValue fallback for (.+): file")
-failedToSerializeWarningPatt = re.compile("WARNING: Failed to serialize")
+valueUtilsWarning = re.compile(
+    "WARNING: (.+): file .+dom/ipc/jsactor/JSIPCValueUtils\\.cpp:\\d+"
+)
+fallbackWarning = re.compile("UntypedFromJSVal fallback(?: with| for|:) (.+)")
 
 
 def kindToEnum(k):
@@ -53,25 +55,22 @@ def lookAtActors(args):
     parser = TypeParser()
 
     actors = {}
-
-    fallbackWith = {}
-    failedSerialize = 0
-
     failedType = []
+
+    fallbackFor = {}
+    otherWarnings = {}
 
     # Parse the input.
     for l in sys.stdin:
-        fwp = fallbackWarningPatt.search(l)
-        if fwp:
-            failCase = fwp.group(1)
-            if failCase in fallbackWith:
-                fallbackWith[failCase] += 1
-            else:
-                fallbackWith[failCase] = 1
-            continue
-        ftswp = failedToSerializeWarningPatt.search(l)
-        if ftswp:
-            failedSerialize += 1
+        wp = valueUtilsWarning.search(l)
+        if wp:
+            warning = wp.group(1)
+            fallbackMatch = fallbackWarning.fullmatch(warning)
+            if fallbackMatch:
+                failCase = fallbackMatch.group(1)
+                fallbackFor[failCase] = fallbackFor.setdefault(failCase, 0) + 1
+                continue
+            otherWarnings[warning] = otherWarnings.setdefault(warning, 0) + 1
             continue
 
         tp = typePatt.search(l)
@@ -152,13 +151,23 @@ def lookAtActors(args):
     print("=========================")
     print()
 
-    if len(fallbackWith) > 0:
-        for t, c in fallbackWith.items():
-            print(f"Fallback with {t}; count: {c}")
+    if len(fallbackFor) > 0:
+        print("UntypedFromJSVal fallbacks:")
+        counts = [(c, t) for [t, c] in fallbackFor.items()]
+        counts.sort(reverse=True)
+        for c, t in counts:
+            print(f"\t{c}\t{t}")
     else:
-        print("Found no instances of AnyToJSIPCValue fallback.")
+        print("Found no UntypedFromJSVal fallbacks.")
     print()
-    print(f"Failed to serialize count: {failedSerialize}")
+    if len(otherWarnings) > 0:
+        print("Other JSIPCValueUtils.cpp warnings:")
+        counts = [(c, w) for [w, c] in otherWarnings.items()]
+        counts.sort(reverse=True)
+        for c, w in counts:
+            print(f"\t{c}\t{w}")
+    else:
+        print("Found no other JSIPCValueUtils.cpp warnings.")
 
 
 parser = argparse.ArgumentParser()
