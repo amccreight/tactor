@@ -128,6 +128,16 @@ class ActorDecls:
                 + f" Previous was at {loc0}",
             )
 
+    # Return a pair of sets of characters. One for those from the
+    # actor names and one for the message names.
+    def nameChars(self):
+        actorNamesChars = set()
+        messageNamesChars = set()
+        for actorName, messages in self.actors.items():
+            actorNamesChars |= set(actorName)
+            messageNamesChars |= messages.nameChars()
+        return [actorNamesChars, messageNamesChars]
+
     def serializeJSON(self, s):
         s.addLine("{")
         firstActor = True
@@ -257,6 +267,12 @@ class ActorDecl:
     def existingMessageKindLoc(self, messageName, kind):
         assert messageName in self.messages
         return self.messages[messageName].existingMessageKindLoc(kind)
+
+    def nameChars(self):
+        messageNamesChars = set()
+        for messageName in self.messages.keys():
+            messageNamesChars |= set(messageName)
+        return messageNamesChars
 
     def serializeJSON(self, s, indent):
         s.addLine("{")

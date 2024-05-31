@@ -137,6 +137,25 @@ def lookAtActors(args):
 
     print("=========================")
     print()
+    nameChars = actors.nameChars()
+
+    def filterChars(cc1):
+        patt = re.compile("[a-zA-Z0-9]")
+        cc2 = []
+        for c in sorted(list(cc1)):
+            if patt.fullmatch(c):
+                continue
+            cc2.append(c)
+        if len(cc2) == 0:
+            return "none"
+        return "".join(cc2)
+
+    print("Actor name non-alphanumeric characters: " + filterChars(nameChars[0]))
+    print("Message name non-alphanumeric characters: " + filterChars(nameChars[1]))
+    print()
+
+    print("=========================")
+    print()
 
     if len(fallbackWith) > 0:
         for t, c in fallbackWith.items():
