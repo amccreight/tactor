@@ -20,6 +20,7 @@ from ts import (
     ObjectType,
     PrimitiveType,
     UnionType,
+    primitiveTypes,
 )
 
 
@@ -33,20 +34,7 @@ def _safeLinenoValue(t):
 
 
 class Tokenizer(object):
-    reserved = set(
-        (
-            "undefined",
-            "string",
-            "null",
-            "boolean",
-            "number",
-            "nsIPrincipal",
-            "BrowsingContext",
-            "any",
-            "never",
-            "Array",
-        )
-    )
+    reserved = set(("any", "never", "Array")) | set(primitiveTypes)
 
     tokens = [
         "ID",
@@ -153,7 +141,8 @@ class Parser(Tokenizer):
         | BOOLEAN
         | NUMBER
         | NSIPRINCIPAL
-        | BROWSINGCONTEXT"""
+        | BROWSINGCONTEXT
+        | DOMRECT"""
         p[0] = PrimitiveType(p[1])
 
     def p_AnyType(self, p):
@@ -198,6 +187,7 @@ class Parser(Tokenizer):
         | NUMBER
         | NSIPRINCIPAL
         | BROWSINGCONTEXT
+        | DOMRECT
         | ANY
         | NEVER
         | ARRAY"""
@@ -430,16 +420,9 @@ class TestTypePrinting(unittest.TestCase):
         self.check("any", '"any"')
         self.check("never", '"never"')
 
-        # primitives
-        self.check("undefined", '"undefined"')
-        self.check("string", '"string"')
-        self.check("undefined", '"undefined"')
-        self.check("string", '"string"')
-        self.check("null", '"null"')
-        self.check("boolean", '"boolean"')
-        self.check("number", '"number"')
-        self.check("nsIPrincipal", '"nsIPrincipal"')
-        self.check("BrowsingContext", '"BrowsingContext"')
+        # primitive types
+        for p in primitiveTypes:
+            self.check(p, f'"{p}"')
 
         # Array
         self.check("Array<any>", '["array", "any"]')

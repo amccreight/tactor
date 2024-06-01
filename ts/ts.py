@@ -63,6 +63,7 @@ primitiveTypes = [
     "number",
     "nsIPrincipal",
     "BrowsingContext",
+    "DOMRect",
 ]
 primRegexp = re.compile("|".join(primitiveTypes))
 
