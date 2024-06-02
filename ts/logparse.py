@@ -155,8 +155,9 @@ def lookAtActors(args):
         print("UntypedFromJSVal fallbacks:")
         counts = [(c, t) for [t, c] in fallbackFor.items()]
         counts.sort(reverse=True)
+        maxCountLen = len(str(counts[0][0]))
         for c, t in counts:
-            print(f"\t{c}\t{t}")
+            print(f"  {str(c).rjust(maxCountLen)} {t}")
     else:
         print("Found no UntypedFromJSVal fallbacks.")
     print()
@@ -164,8 +165,9 @@ def lookAtActors(args):
         print("Other JSIPCValueUtils.cpp warnings:")
         counts = [(c, w) for [w, c] in otherWarnings.items()]
         counts.sort(reverse=True)
+        maxCountLen = len(str(counts[0][0]))
         for c, w in counts:
-            print(f"\t{c}\t{w}")
+            print(f"  {str(c).rjust(maxCountLen)} {w}")
     else:
         print("Found no other JSIPCValueUtils.cpp warnings.")
 
