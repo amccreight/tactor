@@ -84,6 +84,13 @@ class Tokenizer(object):
         r"=>"
         return t
 
+    def t_linecomment(self, t):
+        r"//[^\n]*"
+
+    def t_multilinecomment(self, t):
+        r"/\*(\n|.)*?\*/"
+        t.lexer.lineno += t.value.count("\n")
+
     def t_newline(self, t):
         r"\n+"
         t.lexer.lineno += len(t.value)
@@ -440,7 +447,7 @@ class TestTypePrinting(unittest.TestCase):
         self.assertEqual(t.jsonStr(), json)
 
     # This doesn't check that the string output is the same as the input.
-    # This is needed because we drop the unary union.
+    # This is needed for testing things like comments and unary union.
     def checkNoString(self, s, json):
         t = self.parser.parse(s)
         self.assertEqual(t.jsonStr(), json)
@@ -453,6 +460,13 @@ class TestTypePrinting(unittest.TestCase):
         # any and never
         self.check("any", '"any"')
         self.check("never", '"never"')
+
+        # comments
+        self.checkNoString("any //", '"any"')
+        self.checkNoString("any // comment", '"any"')
+        self.checkNoString("//\nany", '"any"')
+        self.checkNoString("/* comment */any", '"any"')
+        self.checkNoString("/*\n/*\n**/any", '"any"')
 
         # primitive types
         for p in primitiveTypes:
@@ -530,9 +544,9 @@ class ParseActorDeclsTests(unittest.TestCase):
         # Testing support for multiple messages and actors.
         s = "type MessageTypes = \n{ A: { M : any }; };"
         self.parseTest(s, {"A": {"M": ["any"]}})
-        s = "type MessageTypes = \n{ B: { M: number }, A1_$A: { 'M1:m_': undefined }; };"
+        s = "type MessageTypes = //ok\n{ B: { M: number }, A1_$A: { 'M1:m_': undefined }; };"
         self.parseTest(s, {"A1_$A": {"M1:m_": ["undefined"]}, "B": {"M": ["number"]}})
-        s = 'type MessageTypes = \n{ AB3: { N: any; "M1:-m": undefined }; };'
+        s = 'type MessageTypes = \n{ AB3: /*yes*/ { N: any; "M1:-m": undefined }; };'
         self.parseTest(s, {"AB3": {"M1:-m": ["undefined"], "N": ["any"]}})
 
         # Testing different message kinds.
@@ -566,7 +580,7 @@ class ParseActorDeclsTests(unittest.TestCase):
 
     def test_basic_fail(self):
         e = 'test:3: Expected actor declarations to start with "type", not "e"'
-        self.parseAndCheckFail("\n\ne f = { a: { m: any }; };", e)
+        self.parseAndCheckFail("/*\n ok*/\ne f = { a: { m: any }; };", e)
         e = 'test:2: Expected top level type name to be "MessageTypes", not "e"'
         self.parseAndCheckFail("type\n e = { a: { m: any }; };", e)
         # I'm not sure why this confuses it so much.
