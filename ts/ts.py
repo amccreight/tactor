@@ -96,6 +96,10 @@ class PrimitiveType(JSType):
 # This should be the same as the regexp from t_ID in ts_parse.py.
 identifierRe = re.compile("(?!\\d)[\\w$]+")
 
+# This is identifierRe with "-" and ":" additionally allowed after the first
+# character, to reflect existing practice.
+messageNameRe = re.compile("(?!(?:\\d|[-:]))[\\w$-:]+")
+
 
 class JSPropertyType:
     def __init__(self, n, t, opt):

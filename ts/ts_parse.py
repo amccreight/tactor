@@ -20,6 +20,8 @@ from ts import (
     ObjectType,
     PrimitiveType,
     UnionType,
+    identifierRe,
+    messageNameRe,
     primitiveTypes,
 )
 
@@ -260,6 +262,18 @@ class Parser(Tokenizer):
         """ActorDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
         actorDecl = p[4]
         [loc, actorName] = p[1]
+
+        # This is not a hard requirement, but it makes things easier if we
+        # don't have to worry about escaping special characters in error
+        # messages. This is actually a looser requirement than existing
+        # practice, as all actor names (as of June 2024) consist entirely of
+        # characters in [a-zA-Z0-9].
+        if not identifierRe.fullmatch(actorName):
+            raise ActorError(
+                loc,
+                f'Actor name "{actorName}" should be a valid identifier',
+            )
+
         if isinstance(actorDecl, ActorDecl):
             actorDecl.loc = loc
             p[0] = [actorName, actorDecl]
@@ -304,6 +318,21 @@ class Parser(Tokenizer):
 
     def p_MessageDecl(self, p):
         """MessageDecl : ActorOrMessageName ':' MessageType"""
+        [loc, messageName] = p[1]
+        # This is not a hard requirement, but it makes things easier if we
+        # don't have to worry about escaping special characters in error
+        # messages. This is actually a looser requirement than existing
+        # practice, as all message names (as of June 2024) consist entirely
+        # of characters in [a-zA-Z0-9-:_].
+        if not messageNameRe.fullmatch(messageName):
+            raise ActorError(
+                loc,
+                (
+                    f'Message name "{messageName}" should be a valid identifier'
+                    + ' (it can also contain "-" or ":" '
+                    + "after the first character)"
+                ),
+            )
         p[0] = p[1] + p[3]
 
     def p_MessageType(self, p):
@@ -496,14 +525,14 @@ class ParseActorDeclsTests(unittest.TestCase):
         # Testing support for multiple messages and actors.
         s = "type MessageTypes = \n{ A: { M : any }; };"
         self.parseTest(s, {"A": {"M": ["any"]}})
-        s = "type MessageTypes = \n{ B: { M: number }, A: { M: undefined }; };"
-        self.parseTest(s, {"A": {"M": ["undefined"]}, "B": {"M": ["number"]}})
-        s = "type MessageTypes = \n{ A: { N: any; M: undefined }; };"
-        self.parseTest(s, {"A": {"M": ["undefined"], "N": ["any"]}})
+        s = "type MessageTypes = \n{ B: { M: number }, A1_$A: { 'M1:m_': undefined }; };"
+        self.parseTest(s, {"A1_$A": {"M1:m_": ["undefined"]}, "B": {"M": ["number"]}})
+        s = 'type MessageTypes = \n{ AB3: { N: any; "M1:-m": undefined }; };'
+        self.parseTest(s, {"AB3": {"M1:-m": ["undefined"], "N": ["any"]}})
 
         # Testing different message kinds.
-        s = "type MessageTypes = \n{ A: { M: boolean }; };"
-        self.parseTest(s, {"A": {"M": ["boolean"]}})
+        s = "type MessageTypes = \n{ a: { m: boolean }; };"
+        self.parseTest(s, {"a": {"m": ["boolean"]}})
         s = "type MessageTypes = \n{ A: { M: (_: undefined) => never }; };"
         self.parseTest(s, {"A": {"M": ["never", "undefined"]}})
         s = "type MessageTypes = \n{ A: { M: (_: never) => { x : boolean } }; };"
@@ -538,6 +567,28 @@ class ParseActorDeclsTests(unittest.TestCase):
         # I'm not sure why this confuses it so much.
         self.parseAndCheckFail("\n\neee", 'test:0: Syntax error near "???"')
         self.parseAndCheckFail("\n\n1234", 'test:3: Syntax error near "1234"')
+
+        # Restrictions on actor names.
+        def badActorName(name):
+            s = f"type MessageTypes =\n {{ '{name}': {{ M: any }}; }};"
+            e = f'test:2: Actor name "{name}" should be a valid identifier'
+            self.parseAndCheckFail(s, e)
+
+        badActorName("A B")
+        badActorName("3A")
+        badActorName("A:B")
+        badActorName("A-B")
+
+        # Restrictions on message names.
+        def badMessageName(name):
+            s = f"type MessageTypes =\n {{ M: {{ '{name}': any }}; }};"
+            e = f'test:2: Message name "{name}" should be a valid identifier'
+            self.parseAndCheckFail(s, e)
+
+        badMessageName("M ")
+        badMessageName("3M")
+        badMessageName("-M")
+        badMessageName(":M")
 
         # Multiple actor declarations, with various ways of writing actor names.
         s = "type MessageTypes =\n { A: { M: any };\n A: { M: any}; };"
