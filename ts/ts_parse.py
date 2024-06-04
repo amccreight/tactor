@@ -267,7 +267,9 @@ class Parser(Tokenizer):
         # don't have to worry about escaping special characters in error
         # messages. This is actually a looser requirement than existing
         # practice, as all actor names (as of June 2024) consist entirely of
-        # characters in [a-zA-Z0-9].
+        # characters in [a-zA-Z0-9]. Check this before any other error messages
+        # that use the actor name so we don't have to wrap the name in quotes
+        # in those later error messages.
         if not identifierRe.fullmatch(actorName):
             raise ActorError(
                 loc,
@@ -281,9 +283,10 @@ class Parser(Tokenizer):
             [loc, kind, messageName, loc0] = actorDecl
             raise ActorError(
                 loc,
-                f'Multiple declarations of actor "{actorName}"\'s '
-                + f'{kindToStr(kind)} message "{messageName}".'
-                + f" Previous was at {loc0}",
+                "Multiple declarations of "
+                + f"{kindToStr(kind)} message {messageName} "
+                + f"for actor {actorName}. "
+                + f"Previous was at {loc0}",
             )
 
     def p_ActorOrMessageName(self, p):
@@ -323,7 +326,9 @@ class Parser(Tokenizer):
         # don't have to worry about escaping special characters in error
         # messages. This is actually a looser requirement than existing
         # practice, as all message names (as of June 2024) consist entirely
-        # of characters in [a-zA-Z0-9-:_].
+        # of characters in [a-zA-Z0-9-:_]. Check this before any other error
+        # messages that use the message name so we don't have to wrap the name
+        # in quotes in those later error messages.
         if not messageNameRe.fullmatch(messageName):
             raise ActorError(
                 loc,
@@ -592,13 +597,13 @@ class ParseActorDeclsTests(unittest.TestCase):
 
         # Multiple actor declarations, with various ways of writing actor names.
         s = "type MessageTypes =\n { A: { M: any };\n A: { M: any}; };"
-        e = 'test:3: Multiple declarations of actor "A". Previous was at test:2'
+        e = "test:3: Multiple declarations of actor A. Previous was at test:2"
         self.parseAndCheckFail(s, e)
         s = "type MessageTypes =\n { \"A\": { M: any };\n 'A': { M: any}; };"
-        e = 'test:3: Multiple declarations of actor "A". Previous was at test:2'
+        e = "test:3: Multiple declarations of actor A. Previous was at test:2"
         self.parseAndCheckFail(s, e)
         s = 'type MessageTypes =\n { A: { M: any };\n "A": { M: any}; };'
-        e = 'test:3: Multiple declarations of actor "A". Previous was at test:2'
+        e = "test:3: Multiple declarations of actor A. Previous was at test:2"
         self.parseAndCheckFail(s, e)
 
         # Check various errors related to message kinds.
@@ -610,20 +615,20 @@ class ParseActorDeclsTests(unittest.TestCase):
         self.parseAndCheckFail(s, e)
         s = "type MessageTypes =\n { A: { M: any\n , M: any; };\n };"
         e = (
-            'test:3: Multiple declarations of actor "A"\'s '
-            + 'sendAsyncMessage() message "M". Previous was at test:2'
+            "test:3: Multiple declarations of sendAsyncMessage() message "
+            + "M for actor A. Previous was at test:2"
         )
         self.parseAndCheckFail(s, e)
         s = "type MessageTypes =\n { A: { M: (_: any)=>never \n , M: (_: any)=>never; };\n };"
         e = (
-            'test:3: Multiple declarations of actor "A"\'s '
-            + 'sendQuery() message "M". Previous was at test:2'
+            "test:3: Multiple declarations of sendQuery() message M for "
+            + "actor A. Previous was at test:2"
         )
         self.parseAndCheckFail(s, e)
         s = "type MessageTypes =\n { A: { M: (_: never)=>any \n , M: (_: never)=>any; };\n };"
         e = (
-            'test:3: Multiple declarations of actor "A"\'s '
-            + 'query reply message "M". Previous was at test:2'
+            "test:3: Multiple declarations of query reply message M for "
+            + "actor A. Previous was at test:2"
         )
         self.parseAndCheckFail(s, e)
 

@@ -100,7 +100,7 @@ class ActorDecls:
             loc0 = self.actors[actorName].loc
             raise ActorError(
                 actorDecl.loc,
-                f'Multiple declarations of actor "{actorName}".'
+                f"Multiple declarations of actor {actorName}."
                 + f" Previous was at {loc0}",
             )
         self.actors[actorName] = actorDecl
@@ -123,9 +123,10 @@ class ActorDecls:
             loc0 = actor.existingMessageKindLoc(messageName, kind)
             raise ActorError(
                 loc,
-                f'Multiple declarations of actor "{actorName}"\'s '
-                + f'{kindToStr(kind)} message "{messageName}".'
-                + f" Previous was at {loc0}",
+                "Multiple declarations of "
+                + f"{kindToStr(kind)} message {messageName} "
+                + f"for actor {actorName}. "
+                + f"Previous was at {loc0}",
             )
 
     # Return a pair of sets of characters. One for those from the
@@ -461,11 +462,11 @@ class MessageTests(unittest.TestCase):
         self.assertEqual(json.loads(ads.toJSON()), {})
         ads.addActor("B", ActorDecl(Loc()))
         self.assertEqual(json.loads(ads.toJSON()), {"B": {}})
-        with self.assertRaisesRegex(ActorError, 'Multiple declarations of actor "B".'):
+        with self.assertRaisesRegex(ActorError, "Multiple declarations of actor B."):
             ads.addActor("B", ActorDecl(Loc()))
         ads.addMessage(Loc(), "B", "M", AnyType(), 0)
         self.assertEqual(json.loads(ads.toJSON()), {"B": {"M": ["any"]}})
-        e = 'Multiple declarations of actor "B"\'s sendAsyncMessage() message "M"'
+        e = "Multiple declarations of sendAsyncMessage() message M for actor B"
         with self.assertRaisesRegex(ActorError, re.escape(e)):
             ads.addMessage(Loc(), "B", "M", AnyType(), 0)
         ads.addActor("A", ActorDecl(Loc()))
@@ -500,7 +501,7 @@ class MessageTests(unittest.TestCase):
         ads.addActor("A", ActorDecl(Loc()))
         ads2 = ActorDecls()
         ads2.addActor("A", ActorDecl(Loc()))
-        with self.assertRaisesRegex(ActorError, 'Multiple declarations of actor "A".'):
+        with self.assertRaisesRegex(ActorError, "Multiple declarations of actor A."):
             ads.addActors(ads2)
 
 
