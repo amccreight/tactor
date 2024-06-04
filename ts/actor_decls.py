@@ -11,7 +11,7 @@ import re
 import sys
 import unittest
 
-from ts import AnyType, identifierRe, unionWith
+from ts import AnyType, identifierRe, messageNameRe, unionWith
 
 
 # Representation of a source file location. This is needed so we can report
@@ -95,7 +95,6 @@ class ActorDecls:
         self.actors = {}
 
     def addActor(self, actorName, actorDecl):
-        assert '"' not in actorName
         if actorName in self.actors:
             loc0 = self.actors[actorName].loc
             raise ActorError(
@@ -103,6 +102,9 @@ class ActorDecls:
                 f"Multiple declarations of actor {actorName}."
                 + f" Previous was at {loc0}",
             )
+        else:
+            # The parser guarantees this.
+            assert identifierRe.fullmatch(actorName)
         self.actors[actorName] = actorDecl
 
     # Helper for use by the parser.
@@ -148,6 +150,8 @@ class ActorDecls:
                 firstActor = False
             else:
                 s.addLine(",")
+            # I'm not sure if we need quotes given that the
+            # actor name is a valid identifier.
             s.add(f'  "{actorName}": ')
             messages.serializeJSON(s, "  ")
         s.addLine("")
@@ -169,7 +173,7 @@ class ActorDecls:
         s.addLine("type MessageTypes = {")
         for actorName in sorted(list(self.actors.keys())):
             messages = self.actors[actorName]
-            s.add(f"  {quoteNonIdentifier(actorName)}: ")
+            s.add(f"  {actorName}: ")
             messages.serializeTS(s, "  ")
         s.addLine("};")
 
@@ -253,8 +257,8 @@ class ActorDecl:
         self.messages = {}
 
     def addMessage(self, loc, messageName, t, kind):
-        assert '"' not in messageName
         if messageName not in self.messages:
+            assert messageNameRe.fullmatch(messageName)
             self.messages[messageName] = MessageTypes(loc, t, kind)
             return True
         return self.messages[messageName].addType(loc, t, kind)
@@ -283,7 +287,6 @@ class ActorDecl:
                 firstMessage = False
             else:
                 s.addLine(",")
-            assert '"' not in messageName
             s.add(indent + f'  "{messageName}": ')
             self.messages[messageName].serializeJSON(s)
         s.addLine("")
@@ -297,7 +300,6 @@ class ActorDecl:
     def serializeTS(self, s, indent):
         s.addLine("{")
         for messageName in sorted(list(self.messages.keys())):
-            assert '"' not in messageName
             name = indent + "  " + quoteNonIdentifier(messageName)
             self.messages[messageName].serializeTS(s, name)
         s.addLine(indent + "};")
@@ -309,7 +311,6 @@ class ActorDecl:
 
     def serializeText(self, s, indent):
         for messageName in sorted(list(self.messages.keys())):
-            assert '"' not in messageName
             name = indent + "  " + messageName
             self.messages[messageName].serializeTS(s, name, False)
 
