@@ -49,6 +49,12 @@ def kindToEnum(k):
     return 3
 
 
+# This provides a way to skip specific actors, although in the long term it
+# is better to ignore these messages in Firefox itself so we avoid using
+# IPDL serialization.
+actorsToIgnore = set(["BrowserToolboxDevToolsProcess", "MarionetteCommands"])
+
+
 def lookAtActors(args):
     sys.stdin.reconfigure(encoding="latin1")
 
@@ -78,6 +84,8 @@ def lookAtActors(args):
             continue
 
         actorName = tp.group(2)
+        if actorName in actorsToIgnore:
+            continue
         messageName = tp.group(3)
         kind = kindToEnum(tp.group(4))
 
