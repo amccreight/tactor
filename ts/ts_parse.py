@@ -14,7 +14,7 @@ from actor_decls import ActorDecl, ActorDecls, ActorError, Loc, kindToStr
 from ply import lex, yacc
 from ts import (
     AnyType,
-    ArrayType,
+    ArrayOrSetType,
     JSPropertyType,
     NeverType,
     ObjectType,
@@ -36,7 +36,7 @@ def _safeLinenoValue(t):
 
 
 class Tokenizer(object):
-    reserved = set(("any", "never", "Array")) | set(primitiveTypes)
+    reserved = set(("any", "never", "Array", "Set")) | set(primitiveTypes)
 
     tokens = [
         "ID",
@@ -126,7 +126,7 @@ class Parser(Tokenizer):
         | AnyType
         | NeverType
         | ObjectType
-        | ArrayType
+        | ArrayOrSetType
         | '|' JSType
         | JSType '|' JSType
         | '(' JSType ')'"""
@@ -199,7 +199,8 @@ class Parser(Tokenizer):
         | DOMRECT
         | ANY
         | NEVER
-        | ARRAY"""
+        | ARRAY
+        | SET"""
         p[0] = p[1]
 
     def p_ObjectTypeInner(self, p):
@@ -222,9 +223,11 @@ class Parser(Tokenizer):
             assert len(p) == 2
             p[0] = False
 
-    def p_ArrayType(self, p):
-        """ArrayType : ARRAY '<' JSType '>'"""
-        p[0] = ArrayType(p[3])
+    def p_ArrayOrSetType(self, p):
+        """ArrayOrSetType : ARRAY '<' JSType '>'
+        | SET '<' JSType '>'"""
+        assert p[1] == "Array" or p[1] == "Set"
+        p[0] = ArrayOrSetType(p[1] == "Array", p[3])
 
     # Top level actor message declarations.
 
@@ -434,6 +437,8 @@ class BasicParseTests(unittest.TestCase):
         self.parseAndCheck('{"\\t": string}')
         self.parseAndCheck("Array<never>")
         self.parseAndCheckFail("Array<>", 'Syntax error near ">"')
+        self.parseAndCheck("Set<never>")
+        self.parseAndCheckFail("Set<>", 'Syntax error near ">"')
 
 
 class TestTypePrinting(unittest.TestCase):
@@ -479,6 +484,13 @@ class TestTypePrinting(unittest.TestCase):
         self.check("Array<Array<any>>", '["array", ["array", "any"]]')
         self.check("Array<Array<never>>", '["array", ["array", "never"]]')
 
+        # Set
+        self.check("Set<any>", '["set", "any"]')
+        self.check("Set<never>", '["set", "never"]')
+        self.check("Set<nsIPrincipal>", '["set", "nsIPrincipal"]')
+        self.check("Set<Set<any>>", '["set", ["set", "any"]]')
+        self.check("Set<Set<never>>", '["set", ["set", "never"]]')
+
         # union
         self.check("any | any", '["union", "any", "any"]')
         # Do this in both orders to check that we aren't sorting.
@@ -489,6 +501,14 @@ class TestTypePrinting(unittest.TestCase):
         self.check(
             "Array<any> | Array<never>",
             '["union", ["array", "any"], ["array", "never"]]',
+        )
+        self.check(
+            "Set<never> | Set<any>",
+            '["union", ["set", "never"], ["set", "any"]]',
+        )
+        self.check(
+            "Set<any> | Set<never>",
+            '["union", ["set", "any"], ["set", "never"]]',
         )
         self.check(
             "any | string | undefined",

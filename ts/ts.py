@@ -185,26 +185,36 @@ class ObjectType(JSType):
         return 3
 
 
-class ArrayType(JSType):
-    def __init__(self, elementType):
+class ArrayOrSetType(JSType):
+    def __init__(self, isArray, elementType):
         assert elementType is not None
+        self.isArray = isArray
         self.elementType = elementType
 
     def __eq__(self, o):
         if self.__class__ != o.__class__:
             return False
-        return self.elementType == o.elementType
+        return self.isArray == o.isArray and self.elementType == o.elementType
 
     def __str__(self):
         elementString = str(self.elementType)
-        return f"Array<{elementString}>"
+        if self.isArray:
+            return f"Array<{elementString}>"
+        else:
+            return f"Set<{elementString}>"
 
     def jsonStr(self):
-        return f'["array", {self.elementType.jsonStr()}]'
+        elementString = self.elementType.jsonStr()
+        if self.isArray:
+            return f'["array", {elementString}]'
+        else:
+            return f'["set", {elementString}]'
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
             return self.classOrd() < o.classOrd()
+        if self.isArray != o.isArray:
+            return self.isArray < o.isArray
         return self.elementType < o.elementType
 
     def classOrd(self):
@@ -305,10 +315,12 @@ def tryUnionWith(t1, t2):
             return None
         objectAbsorb(t1, t2)
         return t1
-    if isinstance(t1, ArrayType):
-        if not isinstance(t2, ArrayType):
+    if isinstance(t1, ArrayOrSetType):
+        if not isinstance(t2, ArrayOrSetType):
             return None
-        # Array(a | b) is nicer than Array(a) | Array(b) so always merge them,
+        if t1.isArray != t2.isArray:
+            return None
+        # Array<a|b> is nicer than Array<a> | Array<b> so always merge them,
         # unless one is being used as the type for an empty array.
         t1.elementType = unionWith(t1.elementType, t2.elementType)
         return t1
@@ -408,7 +420,8 @@ class TestUnion(unittest.TestCase):
         )
         self.assertEqual(str(tryUnionWith(t1, t2)), "{x: null | string}")
 
-        self.assertEqual(str(ArrayType(NeverType())), "Array<never>")
+        self.assertEqual(str(ArrayOrSetType(True, NeverType())), "Array<never>")
+        self.assertEqual(str(ArrayOrSetType(False, NeverType())), "Set<never>")
 
         self.assertEqual(
             str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number"
