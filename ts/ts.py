@@ -232,7 +232,7 @@ class UnionType(JSType):
         return self.types == o.types
 
     def __str__(self):
-        return " | ".join(map(lambda t: str(t), self.types))
+        return " | ".join(sorted(map(lambda t: str(t), self.types)))
 
     def jsonStr(self):
         # ["union", t1, t2]
