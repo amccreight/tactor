@@ -18,6 +18,7 @@ import re
 import sys
 
 from actor_decls import ActorDecls, ActorError
+from ts import TestOnlyType
 from ts_parse import TypeParser
 
 messageKindPatt = "Message|Query|QueryResolve|QueryReject"
@@ -53,6 +54,26 @@ def kindToEnum(k):
 # is better to ignore these messages in Firefox itself so we avoid using
 # IPDL serialization.
 actorsToIgnore = set(["BrowserToolboxDevToolsProcess", "MarionetteCommands"])
+
+# XXX Ideally, we'd support going from actor names directly to types, instead
+# of having to list all of the messages we found.
+testActors = set(
+    [
+        "BrowserTestUtils",
+        "Bug1622420",
+        "ReftestFission",
+        "StartupContentSubframe",
+        "TestProcessActor",
+        "TestWindow",
+        "SpecialPowers",
+    ]
+)
+
+
+def specialType(actorName):
+    if actorName in testActors:
+        return TestOnlyType()
+    return None
 
 
 def lookAtActors(args):
@@ -94,10 +115,6 @@ def lookAtActors(args):
         # messageName == "DevToolsFrameChild:packet".
 
         typeRaw = tp.group(5)
-        currActor = actors.setdefault(actorName, {})
-        currMessage = currActor.setdefault(messageName, [[], [], [], []])
-        currTypes = currMessage[kind]
-
         if typeRaw == "NO VALUE":
             # The JS IPC value being passed in was None, so nothing to do.
             continue
@@ -105,14 +122,20 @@ def lookAtActors(args):
             failedType.append([actorName, messageName])
             continue
 
-        try:
-            ty = parser.parse(typeRaw)
-            if ty not in currTypes:
-                currTypes.append(ty)
-        except ActorError as e:
-            print(e, file=sys.stderr)
-            print(f"  while parsing: {typeRaw}", file=sys.stderr)
-            return
+        currActor = actors.setdefault(actorName, {})
+        currMessage = currActor.setdefault(messageName, [[], [], [], []])
+        currTypes = currMessage[kind]
+
+        ty = specialType(actorName)
+        if ty is None:
+            try:
+                ty = parser.parse(typeRaw)
+            except ActorError as e:
+                print(e, file=sys.stderr)
+                print(f"  while parsing: {typeRaw}", file=sys.stderr)
+                return
+        if ty not in currTypes:
+            currTypes.append(ty)
 
     # Union together the types from different instances of each message.
     actors = ActorDecls.unify(actors, log=not (args.json or args.ts))
