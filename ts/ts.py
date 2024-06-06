@@ -55,6 +55,26 @@ class NeverType(JSType):
         return 1
 
 
+class TestOnlyType(JSType):
+    def __init__(self):
+        return
+
+    def __eq__(self, o):
+        return self.__class__ == o.__class__
+
+    def __str__(self):
+        return "testOnly"
+
+    def jsonStr(self):
+        return '"testOnly"'
+
+    def __lt__(self, o):
+        return self.classOrd() < o.classOrd()
+
+    def classOrd(self):
+        return 2
+
+
 primitiveTypes = [
     "undefined",
     "string",
@@ -90,7 +110,7 @@ class PrimitiveType(JSType):
         return self.name < o.name
 
     def classOrd(self):
-        return 2
+        return 3
 
 
 # This should be the same as the regexp from t_ID in ts_parse.py.
@@ -182,7 +202,7 @@ class ObjectType(JSType):
         return str(self) < str(o)
 
     def classOrd(self):
-        return 3
+        return 4
 
 
 class ArrayOrSetType(JSType):
@@ -218,7 +238,7 @@ class ArrayOrSetType(JSType):
         return self.elementType < o.elementType
 
     def classOrd(self):
-        return 4
+        return 5
 
 
 class UnionType(JSType):
@@ -243,7 +263,7 @@ class UnionType(JSType):
         return s
 
     def classOrd(self):
-        return 5
+        return 6
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -306,6 +326,11 @@ def tryUnionWith(t1, t2):
         return t1
     if isinstance(t1, NeverType):
         return t2
+    if isinstance(t1, TestOnlyType):
+        if isinstance(t2, TestOnlyType):
+            return t1
+        else:
+            return None
     if isinstance(t1, PrimitiveType):
         if t1 == t2:
             return t1
