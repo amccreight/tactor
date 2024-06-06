@@ -388,7 +388,7 @@ class TestUnion(unittest.TestCase):
         )
         t2 = ObjectType([JSPropertyType("x", PrimitiveType("boolean"), False)])
         self.assertEqual(
-            str(tryUnionWith(t1, t2)), "{x: undefined | boolean; y?: number}"
+            str(tryUnionWith(t1, t2)), "{x: boolean | undefined; y?: number}"
         )
 
         t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False)])
