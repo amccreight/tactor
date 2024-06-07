@@ -19,6 +19,7 @@ from ts import (
     NeverType,
     ObjectType,
     PrimitiveType,
+    TestOnlyType,
     UnionType,
     identifierRe,
     messageNameRe,
@@ -36,7 +37,7 @@ def _safeLinenoValue(t):
 
 
 class Tokenizer(object):
-    reserved = set(("any", "never", "Array", "Set")) | set(primitiveTypes)
+    reserved = set(("any", "never", "testOnly", "Array", "Set")) | set(primitiveTypes)
 
     tokens = [
         "ID",
@@ -125,6 +126,7 @@ class Parser(Tokenizer):
         """JSType : PrimitiveType
         | AnyType
         | NeverType
+        | TestOnlyType
         | ObjectType
         | ArrayOrSetType
         | '|' JSType
@@ -161,6 +163,10 @@ class Parser(Tokenizer):
     def p_NeverType(self, p):
         """NeverType : NEVER"""
         p[0] = NeverType()
+
+    def p_TestOnlyType(self, p):
+        """TestOnlyType : TESTONLY"""
+        p[0] = TestOnlyType()
 
     def p_ObjectType(self, p):
         """ObjectType : '{' ObjectTypeInner '}'
@@ -199,6 +205,7 @@ class Parser(Tokenizer):
         | DOMRECT
         | ANY
         | NEVER
+        | TESTONLY
         | ARRAY
         | SET"""
         p[0] = p[1]
@@ -461,9 +468,10 @@ class TestTypePrinting(unittest.TestCase):
             self.parser.parse(s)
 
     def test_basic(self):
-        # any and never
+        # any, never, testOnly
         self.check("any", '"any"')
         self.check("never", '"never"')
+        self.check("testOnly", '"testOnly"')
 
         # comments
         self.checkString("any //", "any", '"any"')
@@ -479,6 +487,7 @@ class TestTypePrinting(unittest.TestCase):
         # Array
         self.check("Array<any>", '["array", "any"]')
         self.check("Array<never>", '["array", "never"]')
+        self.check("Array<testOnly>", '["array", "testOnly"]')
         self.check("Array<nsIPrincipal>", '["array", "nsIPrincipal"]')
         self.check("Array<Array<any>>", '["array", ["array", "any"]]')
         self.check("Array<Array<never>>", '["array", ["array", "never"]]')
