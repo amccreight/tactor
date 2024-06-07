@@ -7,9 +7,8 @@
 # Translate the pseudo-TypeScript for JS actor types to the JSON encoding.
 
 import argparse
-import sys
 
-from actor_decls import ActorDecls, ActorError
+from actor_decls import ActorDecls
 from ts_parse import ActorDeclsParser
 
 
@@ -19,12 +18,8 @@ def parseFiles(filenames):
 
     for filename in filenames:
         with open(filename, "r", encoding="utf8") as f:
-            try:
-                newDecls = parser.parse(f.read(), filename)
-                actorDecls.addActors(newDecls)
-            except ActorError as e:
-                print(e, file=sys.stderr)
-                return None
+            newDecls = parser.parse(f.read(), filename)
+            actorDecls.addActors(newDecls)
 
     return actorDecls
 
