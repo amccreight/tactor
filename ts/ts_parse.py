@@ -10,7 +10,7 @@ import json
 import re
 import unittest
 
-from actor_decls import ActorDecl, ActorDecls, ActorError, Loc, kindToStr
+from actor_decls import ActorDecl, ActorDecls, ActorError, Loc
 from ply import lex, yacc
 from ts import (
     AnyType,
@@ -290,13 +290,11 @@ class Parser(Tokenizer):
             actorDecl.loc = loc
             p[0] = [actorName, actorDecl]
         else:
-            [loc, kind, messageName, loc0] = actorDecl
+            [loc, messageName, loc0] = actorDecl
             raise ActorError(
                 loc,
-                "Multiple declarations of "
-                + f"{kindToStr(kind)} message {messageName} "
-                + f"for actor {actorName}. "
-                + f"Previous was at {loc0}",
+                f"Multiple declarations of message {messageName} "
+                + f"for actor {actorName}. Previous was at {loc0}",
             )
 
     def p_ActorOrMessageName(self, p):
@@ -314,6 +312,10 @@ class Parser(Tokenizer):
         """MessageDeclsInner : MessageDeclsInner PropertySeparator MessageDecl
         | MessageDecl"""
         if len(p) == 4:
+            if isinstance(p[1], list):
+                # Parsing the MessageDeclsInner failed, so propagate the error.
+                p[0] = p[1]
+                return
             actorDecl = p[1]
             newDecl = p[3]
         else:
@@ -325,9 +327,9 @@ class Parser(Tokenizer):
         else:
             # Duplicate actor type declaration. Pass the data needed for an error
             # message back up to the point where we know what the actor is.
-            [loc, messageName, _, kind] = newDecl
-            loc0 = actorDecl.existingMessageKindLoc(messageName, kind)
-            p[0] = [loc, kind, messageName, loc0]
+            [loc, messageName, _] = newDecl
+            loc0 = actorDecl.existingMessageLoc(messageName)
+            p[0] = [loc, messageName, loc0]
 
     def p_MessageDecl(self, p):
         """MessageDecl : ActorOrMessageName ':' MessageType"""
@@ -348,15 +350,15 @@ class Parser(Tokenizer):
                     + "after the first character)"
                 ),
             )
-        p[0] = p[1] + p[3]
+        p[0] = p[1] + [p[3]]
 
     def p_MessageType(self, p):
         """MessageType : JSType
         | '(' ID ':' JSType ')' ARROW JSType
         """
         if len(p) == 2:
-            # Message kind: Message.
-            p[0] = [p[1], 0]
+            # sendAsyncMessage
+            p[0] = [p[1]]
         else:
             assert len(p) == 8
             t1 = p[4]
@@ -374,21 +376,18 @@ class Parser(Tokenizer):
                         "to either the left or right of the arrow",
                     )
                 # (_: never) => T
-                # Message kind: QueryResolve.
+                # query resolve
                 # It is not possible to specify QueryReject.
-                p[0] = [t2, 2]
+                p[0] = [None, t2]
                 return
             if isNever2:
                 # (_: T) => never
-                # Message kind: Query.
-                p[0] = [t1, 1]
+                # query
+                p[0] = [t1, None]
                 return
             # (_: T1) => T2
-            raise ActorError(
-                self.locFromTok(p, 1),
-                'Message type must have "never" to either the left '
-                + "or right of the arrow",
-            )
+            # query and query resolve
+            p[0] = [t1, t2]
 
     # Generic definitions.
 
@@ -451,10 +450,10 @@ class TestTypePrinting(unittest.TestCase):
         self.assertEqual(s, str(t))
         self.assertEqual(t.jsonStr(), json)
 
-    # This doesn't check that the string output is the same as the input.
-    # This is needed for testing things like comments and unary union.
-    def checkNoString(self, s, json):
-        t = self.parser.parse(s)
+    # Similar to check, except the expected string is explicitly specified.
+    def checkString(self, input, expected, json):
+        t = self.parser.parse(input)
+        self.assertEqual(expected, str(t))
         self.assertEqual(t.jsonStr(), json)
 
     def checkFail(self, s, error):
@@ -467,11 +466,11 @@ class TestTypePrinting(unittest.TestCase):
         self.check("never", '"never"')
 
         # comments
-        self.checkNoString("any //", '"any"')
-        self.checkNoString("any // comment", '"any"')
-        self.checkNoString("//\nany", '"any"')
-        self.checkNoString("/* comment */any", '"any"')
-        self.checkNoString("/*\n/*\n**/any", '"any"')
+        self.checkString("any //", "any", '"any"')
+        self.checkString("any // comment", "any", '"any"')
+        self.checkString("//\nany", "any", '"any"')
+        self.checkString("/* comment */any", "any", '"any"')
+        self.checkString("/*\n/*\n**/any", "any", '"any"')
 
         # primitive types
         for p in primitiveTypes:
@@ -493,17 +492,20 @@ class TestTypePrinting(unittest.TestCase):
 
         # union
         self.check("any | any", '["union", "any", "any"]')
-        # Do this in both orders to check that we aren't sorting.
-        self.check(
+        # Do this in both orders to check that we are sorting in the TS output,
+        # but not JSON output.
+        self.checkString(
             "Array<never> | Array<any>",
+            "Array<any> | Array<never>",
             '["union", ["array", "never"], ["array", "any"]]',
         )
         self.check(
             "Array<any> | Array<never>",
             '["union", ["array", "any"], ["array", "never"]]',
         )
-        self.check(
+        self.checkString(
             "Set<never> | Set<any>",
+            "Set<any> | Set<never>",
             '["union", ["set", "never"], ["set", "any"]]',
         )
         self.check(
@@ -515,8 +517,10 @@ class TestTypePrinting(unittest.TestCase):
             '["union", ["union", "any", "string"], "undefined"]',
         )
         # unary union, which seems to be used by Prettier.
-        self.checkNoString("| any", '"any"')
-        self.checkNoString("| any | boolean", '["union", "any", "boolean"]')
+        self.checkString("| any", "any", '"any"')
+        self.checkString(
+            "| any | boolean", "any | boolean", '["union", "any", "boolean"]'
+        )
 
         # object
         self.check("{}", '["object"]')
@@ -573,30 +577,11 @@ class ParseActorDeclsTests(unittest.TestCase):
         s = "type MessageTypes = \n{ a: { m: boolean }; };"
         self.parseTest(s, {"a": {"m": ["boolean"]}})
         s = "type MessageTypes = \n{ A: { M: (_: undefined) => never }; };"
-        self.parseTest(s, {"A": {"M": ["never", "undefined"]}})
+        self.parseTest(s, {"A": {"M": ["undefined", "never"]}})
         s = "type MessageTypes = \n{ A: { M: (_: never) => { x : boolean } }; };"
-        self.parseTest(
-            s, {"A": {"M": ["never", "never", ["object", ["x", "boolean"]]]}}
-        )
-        s = (
-            "type MessageTypes = \n{ A: { M: (_: never) => { x: boolean }; "
-            + "M:nsIPrincipal }; };"
-        )
-        self.parseTest(
-            s, {"A": {"M": ["nsIPrincipal", "never", ["object", ["x", "boolean"]]]}}
-        )
-        s = (
-            "type MessageTypes = \n{ A: { M: (_: never) => { x: boolean }; "
-            + "M:(_: boolean) => never }; };"
-        )
-        self.parseTest(
-            s, {"A": {"M": ["never", "boolean", ["object", ["x", "boolean"]]]}}
-        )
-        s = (
-            "type MessageTypes = \n{ A: { M: null, M: (_: never) => undefined; "
-            + "M:(_: number) => never }; };"
-        )
-        self.parseTest(s, {"A": {"M": ["null", "number", "undefined"]}})
+        self.parseTest(s, {"A": {"M": ["never", ["object", ["x", "boolean"]]]}})
+        s = "type MessageTypes = \n{ A: { M: (_: undefined) => boolean }; };"
+        self.parseTest(s, {"A": {"M": ["undefined", "boolean"]}})
 
     def test_basic_fail(self):
         e = 'test:3: Expected actor declarations to start with "type", not "e"'
@@ -640,29 +625,31 @@ class ParseActorDeclsTests(unittest.TestCase):
         e = "test:3: Multiple declarations of actor A. Previous was at test:2"
         self.parseAndCheckFail(s, e)
 
-        # Check various errors related to message kinds.
-        s = "type MessageTypes = \n{ A: { M: (_: any) => any }; };"
-        e = 'test:2: Message type must have "never" to either the left or right of the arrow'
-        self.parseAndCheckFail(s, e)
+        # Need to have at least one non-never type for a query.
         s = "type MessageTypes = \n{ A: { M: (_: never) => never }; };"
         e = 'test:2: Message type must have a non-"never" type to either the left or right of the arrow'
         self.parseAndCheckFail(s, e)
+
+        # Multiple messages
         s = "type MessageTypes =\n { A: { M: any\n , M: any; };\n };"
         e = (
-            "test:3: Multiple declarations of sendAsyncMessage() message "
-            + "M for actor A. Previous was at test:2"
+            "test:3: Multiple declarations of message M for actor A. "
+            + "Previous was at test:2"
         )
         self.parseAndCheckFail(s, e)
-        s = "type MessageTypes =\n { A: { M: (_: any)=>never \n , M: (_: any)=>never; };\n };"
+        s = "type MessageTypes =\n { A: { M: any\n , M: (_: never) => any; };\n };"
         e = (
-            "test:3: Multiple declarations of sendQuery() message M for "
-            + "actor A. Previous was at test:2"
+            "test:3: Multiple declarations of message M for actor A. "
+            + "Previous was at test:2"
         )
         self.parseAndCheckFail(s, e)
-        s = "type MessageTypes =\n { A: { M: (_: never)=>any \n , M: (_: never)=>any; };\n };"
+
+        # Multiple messages followed by another message. Error propagation
+        # works differently in this case.
+        s = "type MessageTypes =\n { A: {\n M: any\n , M: any; N: any};\n };"
         e = (
-            "test:3: Multiple declarations of query reply message M for "
-            + "actor A. Previous was at test:2"
+            "test:4: Multiple declarations of message M for actor A. "
+            + "Previous was at test:3"
         )
         self.parseAndCheckFail(s, e)
 
