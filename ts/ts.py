@@ -81,6 +81,7 @@ primitiveTypes = [
     "null",
     "boolean",
     "number",
+    "structuredClone",
     "nsIPrincipal",
     "BrowsingContext",
     "DOMRect",

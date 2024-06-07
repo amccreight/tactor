@@ -151,6 +151,7 @@ class Parser(Tokenizer):
         | NULL
         | BOOLEAN
         | NUMBER
+        | STRUCTUREDCLONE
         | NSIPRINCIPAL
         | BROWSINGCONTEXT
         | DOMRECT"""
@@ -200,6 +201,7 @@ class Parser(Tokenizer):
         | NULL
         | BOOLEAN
         | NUMBER
+        | STRUCTUREDCLONE
         | NSIPRINCIPAL
         | BROWSINGCONTEXT
         | DOMRECT
