@@ -28,11 +28,9 @@ typePatt = re.compile(
 # This can also be CONTENTS instead of TYPE, and then it will have the result
 # of toSource(), but I'm not logging that right now so don't worry about it.
 
-# Ideally, we'd report the file and test these warnings happened during.
-valueUtilsWarning = re.compile(
-    "WARNING: (.+): file .+dom/ipc/jsactor/JSIPCValueUtils\\.cpp:\\d+"
-)
-fallbackWarning = re.compile("UntypedFromJSVal fallback(?: with| for|:) (.+)")
+# Ideally, we'd report the file and test these messages happened during.
+serializerMsgPatt = re.compile("/JSIPCSerializer (.+)$")
+fallbackMsg = re.compile("UntypedFromJSVal fallback: (.+)")
 
 
 def kindToEnum(k):
@@ -85,19 +83,21 @@ def lookAtActors(args):
     failedType = []
 
     fallbackFor = {}
-    otherWarnings = {}
+    otherSerializerMsgs = {}
 
     # Parse the input.
     for l in sys.stdin:
-        wp = valueUtilsWarning.search(l)
-        if wp:
-            warning = wp.group(1)
-            fallbackMatch = fallbackWarning.fullmatch(warning)
+        serializerMsgMatch = serializerMsgPatt.search(l)
+        if serializerMsgMatch:
+            serializerMsg = serializerMsgMatch.group(1)
+            fallbackMatch = fallbackMsg.fullmatch(serializerMsg)
             if fallbackMatch:
                 failCase = fallbackMatch.group(1)
                 fallbackFor[failCase] = fallbackFor.setdefault(failCase, 0) + 1
                 continue
-            otherWarnings[warning] = otherWarnings.setdefault(warning, 0) + 1
+            otherSerializerMsgs[serializerMsg] = (
+                otherSerializerMsgs.setdefault(serializerMsg, 0) + 1
+            )
             continue
 
         tp = typePatt.search(l)
@@ -192,15 +192,15 @@ def lookAtActors(args):
     else:
         print("Found no UntypedFromJSVal fallbacks.")
     print()
-    if len(otherWarnings) > 0:
-        print("Other JSIPCValueUtils.cpp warnings:")
-        counts = [(c, w) for [w, c] in otherWarnings.items()]
+    if len(otherSerializerMsgs) > 0:
+        print("Other JSIPCSerializer messages:")
+        counts = [(c, w) for [w, c] in otherSerializerMsgs.items()]
         counts.sort(reverse=True)
         maxCountLen = len(str(counts[0][0]))
         for c, w in counts:
             print(f"  {str(c).rjust(maxCountLen)} {w}")
     else:
-        print("Found no other JSIPCValueUtils.cpp warnings.")
+        print("Found no other JSIPCSerializer messages.")
 
 
 parser = argparse.ArgumentParser()
