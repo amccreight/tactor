@@ -166,9 +166,9 @@ class ObjectType(JSType):
     def __init__(self, tt):
         # types is an array of JSPropertyTypes
         self.types = tt
-        # XXX Need to implement int fields for the order to match.
+        # XXX Need to implement int properties for the order to match.
 
-        # Field names must be in order, without duplicates.
+        # Property names must be in order, without duplicates.
         lastName = None
         for p in tt:
             if lastName:
@@ -369,39 +369,39 @@ def objectAbsorb(t1, t2):
     assert isinstance(t1, ObjectType)
     assert isinstance(t2, ObjectType)
 
-    # We assume all fields in both object types are sorted.
+    # We assume all properties in both object types are sorted.
 
-    # XXX Need to implement integer fields, when I do that.
-    stringFieldTypes = []
+    # XXX Need to implement integer properties, when I do that.
+    stringProperties = []
     otherIndex = 0
 
     for p in t1.types:
-        # Move over any smaller fields from the other object type.
+        # Move over any smaller properties from the other object type.
         while otherIndex < len(t2.types) and t2.types[otherIndex] < p:
-            stringFieldTypes.append(t2.types[otherIndex])
-            stringFieldTypes[-1].optional = True
+            stringProperties.append(t2.types[otherIndex])
+            stringProperties[-1].optional = True
             otherIndex += 1
 
         if otherIndex < len(t2.types) and p.name == t2.types[otherIndex].name:
-            # The leading fields have the same name, so merge them.
+            # The leading properties have the same name, so merge them.
             p.type = unionWith(p.type, t2.types[otherIndex].type)
-            stringFieldTypes.append(p)
-            stringFieldTypes[-1].optional = (
-                stringFieldTypes[-1].optional or t2.types[otherIndex].optional
+            stringProperties.append(p)
+            stringProperties[-1].optional = (
+                stringProperties[-1].optional or t2.types[otherIndex].optional
             )
             otherIndex += 1
         else:
             # p is smaller, so move it over.
-            stringFieldTypes.append(p)
-            stringFieldTypes[-1].optional = True
+            stringProperties.append(p)
+            stringProperties[-1].optional = True
 
-    # Move over any remaining fields from the other object type.
+    # Move over any remaining properties from the other object type.
     while otherIndex < len(t2.types):
-        stringFieldTypes.append(t2.types[otherIndex])
-        stringFieldTypes[-1].optional = True
+        stringProperties.append(t2.types[otherIndex])
+        stringProperties[-1].optional = True
         otherIndex += 1
 
-    t1.types = stringFieldTypes
+    t1.types = stringProperties
 
 
 class TestUnion(unittest.TestCase):
