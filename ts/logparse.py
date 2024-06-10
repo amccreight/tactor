@@ -16,10 +16,21 @@
 import argparse
 import re
 import sys
+from copy import deepcopy
 
 from actor_decls import ActorDecls, ActorError
-from ts import TestOnlyType
 from ts_parse import TypeParser
+
+mozLogModules = [
+    "JSIPCValSend",
+    "JSIPCValRecv",
+    "JSIPCTypeSend",
+    "JSIPCTypeRecv",
+    "JSIPCTypeChecking",
+    "JSIPCTypeMemory",
+    "JSIPCSerializer",
+]
+mozLogModulesPatt = re.compile(f"/({'|'.join(mozLogModules)}) (.*)$")
 
 messageKindPatt = "Message|Query|QueryResolve|QueryReject"
 typePatt = re.compile(
@@ -29,23 +40,8 @@ typePatt = re.compile(
 # of toSource(), but I'm not logging that right now so don't worry about it.
 
 # Ideally, we'd report the file and test these messages happened during.
-serializerMsgPatt = re.compile("/JSIPCSerializer (.+)$")
+serializerMsgPatt = re.compile("JSIPCSerializer (.+)$")
 fallbackMsg = re.compile("UntypedFromJSVal fallback: (.+)")
-
-
-def kindToEnum(k):
-    if len(k) == 7:
-        # Message
-        return 0
-    if len(k) == 5:
-        # Query
-        return 1
-    if len(k) == 12:
-        # QueryResolve
-        return 2
-    # QueryReject
-    assert len(k) == 11
-    return 3
 
 
 # This provides a way to skip specific actors, although in the long term it
@@ -70,7 +66,7 @@ testActors = set(
 
 def specialType(actorName):
     if actorName in testActors:
-        return TestOnlyType()
+        return "testOnly"
     return None
 
 
@@ -79,7 +75,20 @@ def lookAtActors(args):
 
     parser = TypeParser()
 
-    actors = {}
+    kindToEnum = {
+        len("Message"): 0,
+        len("Query"): 1,
+        len("QueryResolve"): 2,
+        len("QueryReject"): 3,
+    }
+
+    # Raw type strings to actor names to message names to kinds.
+    # Kinds is an integer or a set of integers.
+    # The idea here is that more than 99.9% of the raw type strings
+    # we see are duplicates, so the data structured is focused on
+    # eliminating duplicates as efficiently as possible.
+    typeActors = {}
+
     failedType = []
 
     fallbackFor = {}
@@ -87,55 +96,104 @@ def lookAtActors(args):
 
     # Parse the input.
     for l in sys.stdin:
-        serializerMsgMatch = serializerMsgPatt.search(l)
-        if serializerMsgMatch:
-            serializerMsg = serializerMsgMatch.group(1)
-            fallbackMatch = fallbackMsg.fullmatch(serializerMsg)
+        modulesMatch = mozLogModulesPatt.search(l)
+        if not modulesMatch:
+            continue
+        module = modulesMatch.group(1)
+        msg = modulesMatch.group(2)
+
+        if module == "JSIPCTypeSend":
+            tp = typePatt.match(msg)
+            assert tp
+
+            actorName = tp.group(2)
+            if actorName in actorsToIgnore:
+                # XXX Should have a list of the actors I actually did ignore.
+                continue
+            messageName = tp.group(3)
+            kind = kindToEnum[len(tp.group(4))]
+
+            # XXX In the previous version of this script, I was skipping
+            # messages with actorName == "DevToolsFrame" and
+            # messageName == "DevToolsFrameChild:packet".
+
+            rawType = tp.group(5)
+            if rawType == "NO VALUE":
+                # The JS IPC value being passed in was None, so nothing to do.
+                continue
+            if rawType == "FAILED":
+                failedType.append([actorName, messageName])
+                continue
+            sType = specialType(actorName)
+            if sType:
+                rawType = sType
+
+            currType = typeActors.setdefault(rawType, {})
+            currActor = currType.setdefault(actorName, {})
+            existingKind = currActor.setdefault(messageName, kind)
+            if existingKind == kind:
+                continue
+
+            if isinstance(existingKind, int):
+                # Multiple kinds are very rare, so don't create a set
+                # unless we really need one.
+                currActor[messageName] = set([existingKind])
+            else:
+                assert isinstance(existingKind, set)
+                existingKind.add(kind)
+            continue
+
+        if module == "JSIPCSerializer":
+            fallbackMatch = fallbackMsg.fullmatch(msg)
             if fallbackMatch:
                 failCase = fallbackMatch.group(1)
                 fallbackFor[failCase] = fallbackFor.setdefault(failCase, 0) + 1
                 continue
-            otherSerializerMsgs[serializerMsg] = (
-                otherSerializerMsgs.setdefault(serializerMsg, 0) + 1
-            )
+            otherSerializerMsgs[msg] = otherSerializerMsgs.setdefault(msg, 0) + 1
             continue
 
-        tp = typePatt.search(l)
-        if not tp:
-            continue
+        # XXX Should record and log these instead of asserting.
+        assert False
 
-        actorName = tp.group(2)
-        if actorName in actorsToIgnore:
-            continue
-        messageName = tp.group(3)
-        kind = kindToEnum(tp.group(4))
+    # Something like 94% of the total runtime of this script is up to this
+    # point, so don't bother spending much time optimizing the rest of it.
 
-        # XXX In the previous version of this script, I was skipping
-        # for messages with actorName == "DevToolsFrame" and
-        # messageName == "DevToolsFrameChild:packet".
+    # Convert the dictionary to be actor-first for easier processing.
+    # * Don't bother checking for duplicates. It is a few % slower, and we
+    #   already know the initial type string isn't a duplicate, so it doesn't
+    #   seem likely you'd end up with a duplicate type, given that the strings
+    #   are automatically generated.
+    # * ActorDecls.unify mutates the type, so multiple messages can't share
+    #   the same type. On the other hand, copying large object types can be
+    #   expensive. Therefore, we only do a copy if we actually need more than
+    #   one, reusing the type created during parsing. This eliminates something
+    #   like 70% of the type copying.
+    actors = {}
+    for rawType, actors0 in typeActors.items():
+        try:
+            ty = parser.parse(rawType)
+        except ActorError as e:
+            print(e, file=sys.stderr)
+            print(f"  while parsing: {rawType}", file=sys.stderr)
+            return
+        typeUsed = False
+        for actorName, messages in actors0.items():
+            currActor = actors.setdefault(actorName, {})
+            for messageName, kinds0 in messages.items():
+                currMessage = currActor.setdefault(messageName, [[], [], [], []])
+                if isinstance(kinds0, int):
+                    kinds = set([kinds0])
+                else:
+                    kinds = kinds0
+                for kind in kinds:
+                    currTypes = currMessage[kind]
+                    if typeUsed:
+                        currTypes.append(deepcopy(ty))
+                    else:
+                        currTypes.append(ty)
+                        typeUsed = True
 
-        typeRaw = tp.group(5)
-        if typeRaw == "NO VALUE":
-            # The JS IPC value being passed in was None, so nothing to do.
-            continue
-        if typeRaw == "FAILED":
-            failedType.append([actorName, messageName])
-            continue
-
-        currActor = actors.setdefault(actorName, {})
-        currMessage = currActor.setdefault(messageName, [[], [], [], []])
-        currTypes = currMessage[kind]
-
-        ty = specialType(actorName)
-        if ty is None:
-            try:
-                ty = parser.parse(typeRaw)
-            except ActorError as e:
-                print(e, file=sys.stderr)
-                print(f"  while parsing: {typeRaw}", file=sys.stderr)
-                return
-        if ty not in currTypes:
-            currTypes.append(ty)
+    typeActors = None
 
     # Union together the types from different instances of each message.
     actors = ActorDecls.unify(actors, log=not (args.json or args.ts))
