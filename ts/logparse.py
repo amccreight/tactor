@@ -49,27 +49,6 @@ fallbackMsg = re.compile("UntypedFromJSVal fallback: (.+)")
 # IPDL serialization.
 actorsToIgnore = set(["BrowserToolboxDevToolsProcess", "MarionetteCommands"])
 
-# XXX Ideally, we'd support going from actor names directly to types, instead
-# of having to list all of the messages we found.
-testActors = set(
-    [
-        "BrowserTestUtils",
-        "Bug1622420",
-        "ReftestFission",
-        "StartupContentSubframe",
-        "TestProcessActor",
-        "TestWindow",
-        "SpecialPowers",
-    ]
-)
-
-
-# XXX Use the override() instead once I support actor-level types.
-def specialType(actorName):
-    if actorName in testActors:
-        return "testOnly"
-    return None
-
 
 def lookAtActors(args):
     sys.stdin.reconfigure(encoding="latin1")
@@ -125,9 +104,6 @@ def lookAtActors(args):
             if rawType == "FAILED":
                 failedType.append([actorName, messageName])
                 continue
-            sType = specialType(actorName)
-            if sType:
-                rawType = sType
 
             currType = typeActors.setdefault(rawType, {})
             currActor = currType.setdefault(actorName, {})

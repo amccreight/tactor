@@ -278,7 +278,12 @@ class Parser(Tokenizer):
             p[0] = actors
 
     def p_ActorDecl(self, p):
-        """ActorDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
+        """ActorDecl : ActorMessagesDecl
+        | ActorSingleDecl"""
+        p[0] = p[1]
+
+    def p_ActorMessagesDecl(self, p):
+        """ActorMessagesDecl : ActorOrMessageName ':' '{' MessageDecls '}'"""
         actorDecl = p[4]
         [loc, actorName] = p[1]
 
@@ -305,6 +310,14 @@ class Parser(Tokenizer):
                 f"Multiple declarations of message {messageName} "
                 + f"for actor {actorName}. Previous was at {loc0}",
             )
+
+    def p_ActorSingleDecl(self, p):
+        """ActorSingleDecl : ActorOrMessageName ':' ANY
+        | ActorOrMessageName ':' TESTONLY"""
+        type = AnyType() if p[3] == "any" else TestOnlyType()
+        [loc, actorName] = p[1]
+        actorDecl = ActorDecl(loc, type)
+        p[0] = [actorName, actorDecl]
 
     def p_ActorOrMessageName(self, p):
         """ActorOrMessageName : ID
@@ -594,6 +607,10 @@ class ParseActorDeclsTests(unittest.TestCase):
         s = "type MessageTypes = \n{ A: { M: (_: undefined) => boolean }; };"
         self.parseTest(s, {"A": {"M": ["undefined", "boolean"]}})
 
+        # Single-type actors.
+        s = "type MessageTypes = \n{ a: any, b: testOnly };"
+        self.parseTest(s, {"a": "any", "b": "testOnly"})
+
     def test_basic_fail(self):
         e = 'test:3: Expected actor declarations to start with "type", not "e"'
         self.parseAndCheckFail("/*\n ok*/\ne f = { a: { m: any }; };", e)
@@ -639,6 +656,11 @@ class ParseActorDeclsTests(unittest.TestCase):
         # Need to have at least one non-never type for a query.
         s = "type MessageTypes = \n{ A: { M: (_: never) => never }; };"
         e = 'test:2: Message type must have a non-"never" type to either the left or right of the arrow'
+        self.parseAndCheckFail(s, e)
+
+        # Single-type actors can only be `any` or `testOnly`.
+        s = "type MessageTypes = \n{ a: boolean };"
+        e = 'test:2: Syntax error near "boolean"'
         self.parseAndCheckFail(s, e)
 
         # Multiple messages

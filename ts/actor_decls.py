@@ -15,7 +15,9 @@ from copy import deepcopy
 from ts import (
     AnyType,
     ArrayOrSetType,
+    JSType,
     PrimitiveType,
+    TestOnlyType,
     identifierRe,
     messageNameRe,
     unionWith,
@@ -155,8 +157,10 @@ class ActorDecls:
     def override(self):
         newDecls = ActorDecls.defaultOverride()
         for actorName, newDecl in newDecls.actors.items():
-            self.actors.setdefault(actorName, {}).override(newDecl)
+            self.actors.setdefault(actorName, ActorDecl(Loc())).override(newDecl)
 
+    # XXX It might be better if this wasn't dumped in the middle of this class.
+    # Maybe in a new file? Or just at the end of this one.
     def defaultOverride():
         newActors = ActorDecls()
         newActors.addActor("ExtensionContent", ActorDecl(Loc()))
@@ -167,6 +171,17 @@ class ActorDecls:
             [None, ArrayOrSetType(True, AnyType())],
             "Return values from extension scripts.",
         )
+        testActors = [
+            "BrowserTestUtils",
+            "Bug1622420",
+            "ReftestFission",
+            "StartupContentSubframe",
+            "TestProcessActor",
+            "TestWindow",
+            "SpecialPowers",
+        ]
+        for a in testActors:
+            newActors.addActor(a, ActorDecl(Loc(), TestOnlyType()))
         return newActors
 
     def serializeJSON(self, s):
@@ -201,6 +216,8 @@ class ActorDecls:
         s.addLine("type MessageTypes = {")
         for actorName in sorted(list(self.actors.keys())):
             messages = self.actors[actorName]
+            if messages.comment:
+                s.addLine(f"  // {messages.comment}")
             s.add(f"  {actorName}: ")
             messages.serializeTS(s, "  ")
         s.addLine("};")
@@ -218,6 +235,8 @@ class ActorDecls:
     def serializeText(self, s):
         for actorName in sorted(list(self.actors.keys())):
             messages = self.actors[actorName]
+            if messages.comment:
+                s.addLine(f"// {messages.comment}")
             s.addLine(f"{actorName}")
             messages.serializeText(s, "")
             s.addLine("")
@@ -317,11 +336,22 @@ class ActorDecls:
 # For now, only allow actor declarations in a single location. Hopefully
 # that is sufficient.
 class ActorDecl:
-    def __init__(self, loc):
+    # The type of an actor can either be a map from message names to a
+    # MessageTypes, or a single type, which will apply to all messages
+    # and kinds.
+    def __init__(self, loc, type=None, comment=""):
         self.loc = loc
-        self.messages = {}
+        self.comment = comment
+        if type is None:
+            self.messages = {}
+            self.type = None
+        else:
+            assert isinstance(type, JSType)
+            self.messages = None
+            self.type = type
 
     def addMessage(self, loc, messageName, t, comment=""):
+        assert self.messages is not None
         if messageName in self.messages:
             return False
         assert messageNameRe.fullmatch(messageName)
@@ -335,31 +365,49 @@ class ActorDecl:
         return self.addMessage(l[0], l[1], l[2])
 
     def existingMessageLoc(self, messageName):
+        assert self.messages is not None
         assert messageName in self.messages
         return self.messages[messageName].loc
 
     def nameChars(self):
         messageNamesChars = set()
-        for messageName in self.messages.keys():
-            messageNamesChars |= set(messageName)
+        if self.messages is not None:
+            for messageName in self.messages.keys():
+                messageNamesChars |= set(messageName)
         return messageNamesChars
 
     def override(self, newDecl):
-        for messageName, newType in newDecl.messages.items():
-            self.messages.setdefault(messageName, {}).override(newType)
+        assert not self.comment
+        if not newDecl.comment and type != TestOnlyType():
+            e = "Non-testOnly single actor override types for need a comment"
+            raise Exception(e)
+        self.comment = newDecl.comment
+        if self.messages is not None and newDecl.messages is not None:
+            for messageName, newType in newDecl.messages.items():
+                self.messages.setdefault(messageName, {}).override(newType)
+            return
+        if newDecl.messages is not None:
+            self.type = None
+            self.messages = deepcopy(newDecl.messages)
+        else:
+            self.messages = None
+            self.type = deepcopy(newDecl.type)
 
     def serializeJSON(self, s, indent):
-        s.addLine("{")
-        firstMessage = True
-        for messageName in sorted(list(self.messages.keys())):
-            if firstMessage:
-                firstMessage = False
-            else:
-                s.addLine(",")
-            s.add(indent + f'  "{messageName}": ')
-            self.messages[messageName].serializeJSON(s)
-        s.addLine("")
-        s.add(indent + "}")
+        if self.messages is not None:
+            s.addLine("{")
+            firstMessage = True
+            for messageName in sorted(list(self.messages.keys())):
+                if firstMessage:
+                    firstMessage = False
+                else:
+                    s.addLine(",")
+                s.add(indent + f'  "{messageName}": ')
+                self.messages[messageName].serializeJSON(s)
+            s.addLine("")
+            s.add(indent + "}")
+        else:
+            s.add(self.type.jsonStr())
 
     def toJSON(self):
         s = stringSerializer()
@@ -367,12 +415,15 @@ class ActorDecl:
         return s.string
 
     def serializeTS(self, s, indent):
-        s.addLine("{")
-        for messageName in sorted(list(self.messages.keys())):
-            self.messages[messageName].serializeTS(
-                s, indent + "  ", quoteNonIdentifier(messageName)
-            )
-        s.addLine(indent + "};")
+        if self.messages is not None:
+            s.addLine("{")
+            for messageName in sorted(list(self.messages.keys())):
+                self.messages[messageName].serializeTS(
+                    s, indent + "  ", quoteNonIdentifier(messageName)
+                )
+            s.addLine(indent + "};")
+        else:
+            s.addLine(str(self.type) + ";")
 
     def toTS(self):
         s = stringSerializer()
@@ -380,8 +431,13 @@ class ActorDecl:
         return s.string
 
     def serializeText(self, s, indent):
-        for messageName in sorted(list(self.messages.keys())):
-            self.messages[messageName].serializeTS(s, indent + "  ", messageName, False)
+        if self.messages is not None:
+            for messageName in sorted(list(self.messages.keys())):
+                self.messages[messageName].serializeTS(
+                    s, indent + "  ", messageName, False
+                )
+        else:
+            s.addLine(indent + "  " + str(self.type))
 
 
 class MessageTypes:
