@@ -335,8 +335,9 @@ class ActorDecl:
     def serializeTS(self, s, indent):
         s.addLine("{")
         for messageName in sorted(list(self.messages.keys())):
-            name = indent + "  " + quoteNonIdentifier(messageName)
-            self.messages[messageName].serializeTS(s, name)
+            self.messages[messageName].serializeTS(
+                s, indent + "  ", quoteNonIdentifier(messageName)
+            )
         s.addLine(indent + "};")
 
     def toTS(self):
@@ -346,12 +347,13 @@ class ActorDecl:
 
     def serializeText(self, s, indent):
         for messageName in sorted(list(self.messages.keys())):
-            name = indent + "  " + messageName
-            self.messages[messageName].serializeTS(s, name, False)
+            self.messages[messageName].serializeTS(s, indent + "  ", messageName, False)
 
 
 class MessageTypes:
-    def __init__(self, loc, types):
+    # The comment, if present, will be added to the TypeScript output, before
+    # the message declaration.
+    def __init__(self, loc, types, comment=""):
         assert isinstance(types, list)
         assert 0 < len(types) <= 2
         self.loc = loc
@@ -360,6 +362,7 @@ class MessageTypes:
             assert types[0] is not None
         elif len(types) == 2:
             assert types[0] is not None or types[1] is not None
+        self.comment = comment
 
     def serializeJSON(self, s):
         tt = [t.jsonStr() if t is not None else '"never"' for t in self.types]
@@ -370,14 +373,15 @@ class MessageTypes:
         self.serializeJSON(s)
         return s.string
 
-    # messageName must include any indentation.
     # The realTS is false case is an attempt to make a nicer
     # looking output that isn't TypeScript.
-    def serializeTS(self, s, messageName, realTS=True):
+    def serializeTS(self, s, indent, messageName, realTS=True):
+        if self.comment:
+            s.addLine(f"{indent}// {self.comment}")
         if realTS:
-            s.add(f"{messageName}: ")
+            s.add(f"{indent}{messageName}: ")
         else:
-            s.add(f"{messageName} : ")
+            s.add(f"{indent}{messageName} : ")
 
         if len(self.types) == 1:
             s.add(f"{self.types[0]}")
@@ -398,7 +402,7 @@ class MessageTypes:
 
     def toTS(self, messageName):
         s = stringSerializer()
-        self.serializeTS(s, messageName)
+        self.serializeTS(s, "", messageName)
         return s.string
 
 
