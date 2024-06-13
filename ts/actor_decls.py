@@ -10,8 +10,16 @@ import json
 import re
 import sys
 import unittest
+from copy import deepcopy
 
-from ts import AnyType, PrimitiveType, identifierRe, messageNameRe, unionWith
+from ts import (
+    AnyType,
+    ArrayOrSetType,
+    PrimitiveType,
+    identifierRe,
+    messageNameRe,
+    unionWith,
+)
 
 
 # Representation of a source file location. This is needed so we can report
@@ -118,10 +126,10 @@ class ActorDecls:
         for a, d in decls.actors.items():
             self.addActor(a, d)
 
-    def addMessage(self, loc, actorName, messageName, t):
+    def addMessage(self, loc, actorName, messageName, t, comment=""):
         assert actorName in self.actors
         actor = self.actors[actorName]
-        if not actor.addMessage(loc, messageName, t):
+        if not actor.addMessage(loc, messageName, t, comment):
             loc0 = actor.existingMessageLoc(messageName)
             raise ActorError(
                 loc,
@@ -138,6 +146,28 @@ class ActorDecls:
             actorNamesChars |= set(actorName)
             messageNamesChars |= messages.nameChars()
         return [actorNamesChars, messageNamesChars]
+
+    # Add all message types in newDecls to self, replacing any
+    # existing types. This is useful for hard coding message types
+    # where log based inference does not do a good job. All of the
+    # types in newDecls should have a comment explaining the
+    # reason for the override.
+    def override(self):
+        newDecls = ActorDecls.defaultOverride()
+        for actorName, newDecl in newDecls.actors.items():
+            self.actors.setdefault(actorName, {}).override(newDecl)
+
+    def defaultOverride():
+        newActors = ActorDecls()
+        newActors.addActor("ExtensionContent", ActorDecl(Loc()))
+        newActors.addMessage(
+            Loc(),
+            "ExtensionContent",
+            "Execute",
+            [None, ArrayOrSetType(True, AnyType())],
+            "Return values from extension scripts.",
+        )
+        return newActors
 
     def serializeJSON(self, s):
         s.addLine("{")
@@ -291,11 +321,11 @@ class ActorDecl:
         self.loc = loc
         self.messages = {}
 
-    def addMessage(self, loc, messageName, t):
+    def addMessage(self, loc, messageName, t, comment=""):
         if messageName in self.messages:
             return False
         assert messageNameRe.fullmatch(messageName)
-        self.messages[messageName] = MessageTypes(loc, t)
+        self.messages[messageName] = MessageTypes(loc, t, comment)
         return True
 
     # Helper method that is easier to use while parsing.
@@ -313,6 +343,10 @@ class ActorDecl:
         for messageName in self.messages.keys():
             messageNamesChars |= set(messageName)
         return messageNamesChars
+
+    def override(self, newDecl):
+        for messageName, newType in newDecl.messages.items():
+            self.messages.setdefault(messageName, {}).override(newType)
 
     def serializeJSON(self, s, indent):
         s.addLine("{")
@@ -363,6 +397,34 @@ class MessageTypes:
         elif len(types) == 2:
             assert types[0] is not None or types[1] is not None
         self.comment = comment
+
+    def override(self, newType):
+        assert isinstance(newType, MessageTypes)
+        if len(self.types) != len(newType.types):
+            m = (
+                f"type {self.toJSON()} and override {newType.toJSON()} "
+                + "must have the same length"
+            )
+            raise Exception(m)
+        if not newType.comment:
+            m = f"override type {newType.toJSON()} must have a comment"
+            raise Exception(m)
+        assert not self.comment
+        self.comment = newType.comment
+        # Probably not necessary to copy, but I expect the new type will
+        # be small, and this will avoid weird things happening if we end
+        # up somehow mutating this type later.
+        if len(self.types) == 1:
+            if newType.types[0] is None:
+                raise Exception("Expected a type for sendAsyncMessage")
+            self.types[0] = deepcopy(newType.types[0])
+        else:
+            if newType.types[0] is None and newType.types[1] is None:
+                raise Exception("Expected a type in query override")
+            if newType.types[0] is not None:
+                self.types[0] = deepcopy(newType.types[0])
+            if newType.types[1] is not None:
+                self.types[1] = deepcopy(newType.types[1])
 
     def serializeJSON(self, s):
         tt = [t.jsonStr() if t is not None else '"never"' for t in self.types]

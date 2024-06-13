@@ -64,6 +64,7 @@ testActors = set(
 )
 
 
+# XXX Use the override() instead once I support actor-level types.
 def specialType(actorName):
     if actorName in testActors:
         return "testOnly"
@@ -197,6 +198,9 @@ def lookAtActors(args):
 
     # Union together the types from different instances of each message.
     actors = ActorDecls.unify(actors, log=not (args.json or args.ts))
+
+    # Set any hard coded messages.
+    actors.override()
 
     if args.json:
         actors.printJSON()
