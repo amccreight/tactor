@@ -378,18 +378,21 @@ class ActorDecl:
 
     def override(self, newDecl):
         assert not self.comment
-        if not newDecl.comment and type != TestOnlyType():
-            e = "Non-testOnly single actor override types for need a comment"
-            raise Exception(e)
         self.comment = newDecl.comment
         if self.messages is not None and newDecl.messages is not None:
             for messageName, newType in newDecl.messages.items():
-                self.messages.setdefault(messageName, {}).override(newType)
+                if messageName in self.messages:
+                    self.messages[messageName].override(newType)
+                else:
+                    self.messages[messageName] = deepcopy(newType)
             return
         if newDecl.messages is not None:
             self.type = None
             self.messages = deepcopy(newDecl.messages)
         else:
+            if not newDecl.comment and newDecl.type != TestOnlyType():
+                e = "Non-testOnly single actor override types for need a comment"
+                raise Exception(e)
             self.messages = None
             self.type = deepcopy(newDecl.type)
 
