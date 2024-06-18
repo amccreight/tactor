@@ -73,6 +73,7 @@ def lookAtActors(args):
 
     fallbackFor = {}
     otherSerializerMsgs = {}
+    otherMsgs = []
 
     # Parse the input.
     for l in sys.stdin:
@@ -105,6 +106,17 @@ def lookAtActors(args):
                 failedType.append([actorName, messageName])
                 continue
 
+            if actorName == "Conduits":
+                if messageName == "CreateProxyContext" and kind == 1:
+                    # test_ext_subframes_privileges.html uses CreateProxyContext as a
+                    # query, whereas everything else uses it as a message. This causes
+                    # problems, so ignore it for now. See bug 1903128.
+                    continue
+                if messageName == "PortMessage" and kind == 2:
+                    # PortMessage is used exactly as much for Message as it is for
+                    # QueryResolve. I don't know what that means. See bug 1903134.
+                    continue
+
             currType = typeActors.setdefault(rawType, {})
             currActor = currType.setdefault(actorName, {})
             existingKind = currActor.setdefault(messageName, kind)
@@ -129,8 +141,7 @@ def lookAtActors(args):
             otherSerializerMsgs[msg] = otherSerializerMsgs.setdefault(msg, 0) + 1
             continue
 
-        # XXX Should record and log these instead of asserting.
-        assert False
+        otherMsgs.append(f"{module}: {msg}")
 
     # Something like 94% of the total runtime of this script is up to this
     # point, so don't bother spending much time optimizing the rest of it.
@@ -239,6 +250,13 @@ def lookAtActors(args):
             print(f"  {str(c).rjust(maxCountLen)} {w}")
     else:
         print("Found no other JSIPCSerializer messages.")
+
+    if len(otherMsgs) > 0:
+        print("=========================")
+        print()
+        print("UNCLASSIFIED MESSAGES")
+        for m in otherMsgs:
+            print("  " + m)
 
 
 parser = argparse.ArgumentParser()
