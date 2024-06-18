@@ -10,23 +10,75 @@
 # various types.
 
 from actor_decls import ActorDecl, ActorDecls, Loc
-from ts import (
-    AnyType,
-    ArrayOrSetType,
-    TestOnlyType,
-)
 
 
-def defaultOverride():
+def defaultOverride(typeParser):
     newActors = ActorDecls()
-    newActors.addActor("ExtensionContent", ActorDecl(Loc()))
-    newActors.addMessage(
-        Loc(),
-        "ExtensionContent",
-        "Execute",
-        [None, ArrayOrSetType(True, AnyType())],
-        "Return values from extension scripts.",
+
+    def addActor(a):
+        newActors.addActor(a, ActorDecl(Loc()))
+
+    def addMsg(a, m, typeStrings, comment):
+        types = []
+        for typeString in typeStrings:
+            if typeString is None:
+                types.append(None)
+                continue
+            types.append(typeParser.parse(typeString))
+        newActors.addMessage(Loc(), a, m, types, comment)
+
+    def addMsgAny(a, m, comment):
+        newActors.addMessage(Loc(), a, m, ["any"], comment)
+
+    def addMsgAnyComplex(a, m):
+        addMsgAny(a, m, "This type is very complex.")
+
+    def addActorWithType(a, typeString, comment):
+        type = typeParser.parse(typeString)
+        newActors.addActor(a, ActorDecl(Loc(), type, comment))
+
+    def addActorTestOnly(a):
+        # No need for a comment for testOnly, as it is self-explanatory.
+        addActorWithType(a, "testOnly", "")
+
+    def addActorAny(a, comment):
+        addActorWithType(a, "any", comment)
+
+    devToolsProcessActors = ["BrowserToolboxDevToolsProcess", "DevToolsProcess"]
+    for a in devToolsProcessActors:
+        addActor(a)
+        for msg in [
+            "DevToolsProcessChild:packet",
+            "DevToolsProcessChild:targetAvailable",
+            "DevToolsProcessChild:targetDestroyed",
+        ]:
+            addMsgAnyComplex(a, msg)
+
+    actor = "Conduits"
+    addActor(actor)
+    addMsgAny(actor, "APICall", "This type is very complex, and we're not logging it.")
+    addMsg(
+        actor,
+        "RunListener",
+        [None, "undefined | structuredClone"],
+        "This message is very frequent and boring, so we don't log it.",
     )
+    # The Conduits messages CreateProxyContext and PortMessage have multiple kinds,
+    # as seen in bug 1903128 and bug 1903134. Unfortunately, there's no way to allow
+    # this at the level of individual messages, so for now anything that uses them
+    # with the extra kind we're ignoring will fail to typecheck.
+
+    actor = "ExtensionContent"
+    addActor(actor)
+    addMsg(
+        actor, "Execute", [None, "Array<any>"], "Return values from extension scripts."
+    )
+
+    addActorAny(
+        "AboutPocket",
+        "Tests for this actor don't actually go through IPC, so we can't infer types.",
+    )
+
     testActors = [
         "BrowserTestUtils",
         "Bug1622420",
@@ -37,5 +89,6 @@ def defaultOverride():
         "SpecialPowers",
     ]
     for a in testActors:
-        newActors.addActor(a, ActorDecl(Loc(), TestOnlyType()))
+        addActorTestOnly(a)
+
     return newActors

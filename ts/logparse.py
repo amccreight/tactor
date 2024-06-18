@@ -51,10 +51,11 @@ fallbackMsg = re.compile("UntypedFromJSVal fallback: (.+)")
 actorsToIgnore = set([])
 
 
+typeParser = TypeParser()
+
+
 def lookAtActors(args):
     sys.stdin.reconfigure(encoding="latin1")
-
-    parser = TypeParser()
 
     kindToEnum = {
         len("Message"): 0,
@@ -162,7 +163,7 @@ def lookAtActors(args):
     actors = {}
     for rawType, actors0 in typeActors.items():
         try:
-            ty = parser.parse(rawType)
+            ty = typeParser.parse(rawType)
         except ActorError as e:
             print(e, file=sys.stderr)
             print(f"  while parsing: {rawType}", file=sys.stderr)
@@ -190,7 +191,8 @@ def lookAtActors(args):
     actors = ActorDecls.unify(actors, log=not (args.json or args.ts))
 
     # Set any hard coded messages.
-    actors.override(defaultOverride())
+    if not args.no_overrides:
+        actors.override(defaultOverride(typeParser))
 
     if args.json:
         actors.printJSON()
@@ -272,6 +274,7 @@ def lookAtActors(args):
 parser = argparse.ArgumentParser()
 parser.add_argument("--json", help="Print output as JSON.", action="store_true")
 parser.add_argument("--ts", help="Print output as TypeScript.", action="store_true")
+parser.add_argument("--no-overrides", help="Disable overrides", action="store_true")
 args = parser.parse_args()
 
 lookAtActors(args)
