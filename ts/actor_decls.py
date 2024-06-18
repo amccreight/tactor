@@ -14,7 +14,6 @@ from copy import deepcopy
 
 from ts import (
     AnyType,
-    ArrayOrSetType,
     JSType,
     PrimitiveType,
     TestOnlyType,
@@ -154,35 +153,9 @@ class ActorDecls:
     # where log based inference does not do a good job. All of the
     # types in newDecls should have a comment explaining the
     # reason for the override.
-    def override(self):
-        newDecls = ActorDecls.defaultOverride()
-        for actorName, newDecl in newDecls.actors.items():
+    def override(self, overrides):
+        for actorName, newDecl in overrides.actors.items():
             self.actors.setdefault(actorName, ActorDecl(Loc())).override(newDecl)
-
-    # XXX It might be better if this wasn't dumped in the middle of this class.
-    # Maybe in a new file? Or just at the end of this one.
-    def defaultOverride():
-        newActors = ActorDecls()
-        newActors.addActor("ExtensionContent", ActorDecl(Loc()))
-        newActors.addMessage(
-            Loc(),
-            "ExtensionContent",
-            "Execute",
-            [None, ArrayOrSetType(True, AnyType())],
-            "Return values from extension scripts.",
-        )
-        testActors = [
-            "BrowserTestUtils",
-            "Bug1622420",
-            "ReftestFission",
-            "StartupContentSubframe",
-            "TestProcessActor",
-            "TestWindow",
-            "SpecialPowers",
-        ]
-        for a in testActors:
-            newActors.addActor(a, ActorDecl(Loc(), TestOnlyType()))
-        return newActors
 
     def serializeJSON(self, s):
         s.addLine("{")

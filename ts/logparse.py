@@ -19,6 +19,7 @@ import sys
 from copy import deepcopy
 
 from actor_decls import ActorDecls, ActorError
+from overrides import defaultOverride
 from ts_parse import TypeParser
 
 mozLogModules = [
@@ -189,7 +190,7 @@ def lookAtActors(args):
     actors = ActorDecls.unify(actors, log=not (args.json or args.ts))
 
     # Set any hard coded messages.
-    actors.override()
+    actors.override(defaultOverride())
 
     if args.json:
         actors.printJSON()
