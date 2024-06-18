@@ -47,7 +47,7 @@ fallbackMsg = re.compile("UntypedFromJSVal fallback: (.+)")
 # This provides a way to skip specific actors, although in the long term it
 # is better to ignore these messages in Firefox itself so we avoid using
 # IPDL serialization.
-actorsToIgnore = set(["BrowserToolboxDevToolsProcess", "MarionetteCommands"])
+actorsToIgnore = set([])
 
 
 def lookAtActors(args):
@@ -75,6 +75,8 @@ def lookAtActors(args):
     otherSerializerMsgs = {}
     otherMsgs = []
 
+    ignoredActors = set([])
+
     # Parse the input.
     for l in sys.stdin:
         modulesMatch = mozLogModulesPatt.search(l)
@@ -89,7 +91,7 @@ def lookAtActors(args):
 
             actorName = tp.group(2)
             if actorName in actorsToIgnore:
-                # XXX Should have a list of the actors I actually did ignore.
+                ignoredActors.add(actorName)
                 continue
             messageName = tp.group(3)
             kind = kindToEnum[len(tp.group(4))]
@@ -254,9 +256,16 @@ def lookAtActors(args):
     if len(otherMsgs) > 0:
         print("=========================")
         print()
-        print("UNCLASSIFIED MESSAGES")
+        print("Other logged messages")
         for m in otherMsgs:
             print("  " + m)
+        print()
+
+    if len(ignoredActors) > 0:
+        print("=========================")
+        print()
+        print(f"Ignored actors: {', '.join(ignoredActors)}")
+        print()
 
 
 parser = argparse.ArgumentParser()
