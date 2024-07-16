@@ -164,6 +164,9 @@ def lookAtActors(args):
     for rawType, actors0 in typeActors.items():
         try:
             ty = typeParser.parse(rawType)
+            # The C++ logging does not use heuristics to combine object types,
+            # so do that here before we get any further.
+            ty.simplify()
         except ActorError as e:
             print(e, file=sys.stderr)
             print(f"  while parsing: {rawType}", file=sys.stderr)

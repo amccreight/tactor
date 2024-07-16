@@ -717,6 +717,36 @@ class TestTypeUnion(unittest.TestCase):
         ]
         self.assertEqual(str(unionWithTypes(types)), "number | {A?: any; B?: any}")
 
+    def test_simplify(self):
+        # The C++ inference now produces non-canonical types. These should get
+        # canonicalized when we run simplify on them.
+
+        def assertSimplifies(tString, expected):
+            t = self.parser.parse(tString)
+            t.simplify()
+            self.assertEqual(str(t), expected)
+
+        t1 = "{A: any} | {A: any; B: any} | {C: any}"
+        t2 = "{A: any; B?: any} | {C: any}"
+        assertSimplifies(t1, t2)
+
+        t1 = "number | " + t1
+        t2 = "number | " + t2
+        assertSimplifies(t1, t2)
+
+        t1 = "number | {C: any}"
+        assertSimplifies(t1, t1)
+
+        # Test that we simplify through various nested unions and arrays.
+        t1 = "Array<Array<{A: any} | {A: any; B: any}> | number>"
+        t2 = "Array<Array<{A: any; B?: any}> | number>"
+        assertSimplifies(t1, t2)
+
+        # Test that we simplify types in object types.
+        t1 = "{C: {A: any} | {A: any; B: any}}"
+        t2 = "{C: {A: any; B?: any}}"
+        assertSimplifies(t1, t2)
+
 
 if __name__ == "__main__":
     unittest.main()

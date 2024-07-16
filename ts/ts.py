@@ -14,6 +14,9 @@ class JSType:
     def __str__(self):
         return "JSTYPE"
 
+    def simplify(self):
+        return
+
 
 class AnyType(JSType):
     def __init__(self):
@@ -205,6 +208,10 @@ class ObjectType(JSType):
     def classOrd(self):
         return 4
 
+    def simplify(self):
+        for p in self.types:
+            p.type.simplify()
+
 
 class ArrayOrSetType(JSType):
     def __init__(self, isArray, elementType):
@@ -240,6 +247,9 @@ class ArrayOrSetType(JSType):
 
     def classOrd(self):
         return 5
+
+    def simplify(self):
+        self.elementType.simplify()
 
 
 class UnionType(JSType):
@@ -317,6 +327,33 @@ class UnionType(JSType):
                 # we need to keep trying with the new type.
                 t2 = t2New
         newTypes.append(t2)
+        self.types = newTypes
+
+    # The C++ logging does not use heuristics to combine object types, so this
+    # union might contain multiple object types that we want to combine. This
+    # process is quadratic, so we only want to do it on incoming logged types.
+    def simplify(self):
+        for t in self.types:
+            t.simplify()
+
+        newTypes = []
+        for i in range(len(self.types)):
+            ti = self.types[i]
+            if ti is None:
+                continue
+            self.types[i] = None
+            assert not isinstance(ti, UnionType)
+            for j in range(i + 1, len(self.types)):
+                tj = self.types[j]
+                if tj is None:
+                    continue
+                assert not isinstance(tj, UnionType)
+                tiNew = tryUnionWith(ti, tj)
+                if tiNew is None:
+                    continue
+                self.types[j] = None
+                ti = tiNew
+            newTypes.append(ti)
         self.types = newTypes
 
 
