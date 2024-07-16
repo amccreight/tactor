@@ -288,11 +288,15 @@ class UnionType(JSType):
                 assert not isinstance(t2, UnionType)
                 t1New = tryUnionWith(t1, t2)
                 if t1New is not None:
-                    # Clear t2 so it won't be used again. If a type unions with
-                    # one member of a union, it shouldn't union with another.
+                    # Clear t2 so it won't be used again. We've absorbed it
+                    # entirely.
                     o.types[j] = None
-                    self.types[i] = t1New
-                    break
+                    # The original t1 might absorb multiple types in our
+                    # union, so we need to keep trying with the new type.
+                    t1 = t1New
+            # t1 might have changed, so save it into the type.
+            self.types[i] = t1
+
         # Copy over any remaining types from the union we're absorbing.
         for t2 in o.types:
             if t2 is None:
@@ -301,14 +305,19 @@ class UnionType(JSType):
 
     def absorbNonUnion(self, t2):
         assert not isinstance(t2, UnionType)
+        newTypes = []
         for i in range(len(self.types)):
             t = self.types[i]
             assert not isinstance(t, UnionType)
             t2New = tryUnionWith(t, t2)
-            if t2New is not None:
-                self.types[i] = t2New
-                return
-        self.types.append(t2)
+            if t2New is None:
+                newTypes.append(t)
+            else:
+                # The original t2 might absorb multiple types in our union, so
+                # we need to keep trying with the new type.
+                t2 = t2New
+        newTypes.append(t2)
+        self.types = newTypes
 
 
 # Reimplementation of JSActorMessageType::TryUnionWith()
@@ -339,8 +348,9 @@ def tryUnionWith(t1, t2):
     if isinstance(t1, ObjectType):
         if not isinstance(t2, ObjectType):
             return None
-        objectAbsorb(t1, t2)
-        return t1
+        if objectAbsorb(t1, t2):
+            return t1
+        return None
     if isinstance(t1, ArrayOrSetType):
         if not isinstance(t2, ArrayOrSetType):
             return None
@@ -365,11 +375,37 @@ def unionWith(t1, t2):
     return UnionType([t1, t2])
 
 
+def mergeObjects(t1, t2):
+    stringNames1 = set([])
+    for p in t1.types:
+        stringNames1.add(p.name)
+    stringNames2 = set([])
+    for p in t2.types:
+        stringNames2.add(p.name)
+
+    # Merge if one set of properties is a subset of the other.
+    if stringNames1 <= stringNames2 or stringNames2 <= stringNames1:
+        return True
+
+    bothNames = stringNames1 & stringNames2
+    biggerSet = max(len(stringNames1), len(stringNames2))
+
+    assert biggerSet > 0
+
+    # XXX In my test example, there was a 3/5 match and a 3/4 match.
+    if 2 * len(bothNames) <= biggerSet:
+        return False
+    return True
+
+
 def objectAbsorb(t1, t2):
     assert isinstance(t1, ObjectType)
     assert isinstance(t2, ObjectType)
 
     # We assume all properties in both object types are sorted.
+
+    if not mergeObjects(t1, t2):
+        return False
 
     # XXX Need to implement integer properties, when I do that.
     stringProperties = []
@@ -402,6 +438,7 @@ def objectAbsorb(t1, t2):
         otherIndex += 1
 
     t1.types = stringProperties
+    return True
 
 
 class TestUnion(unittest.TestCase):

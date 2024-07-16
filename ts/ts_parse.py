@@ -24,6 +24,7 @@ from ts import (
     identifierRe,
     messageNameRe,
     primitiveTypes,
+    unionWith,
 )
 
 
@@ -685,6 +686,36 @@ class ParseActorDeclsTests(unittest.TestCase):
             + "Previous was at test:3"
         )
         self.parseAndCheckFail(s, e)
+
+
+class TestTypeUnion(unittest.TestCase):
+    def __init__(self, methodName):
+        unittest.TestCase.__init__(self, methodName)
+        self.parser = TypeParser()
+
+    def test_union(self):
+        # With these larger types, it is easier to write tests when we have
+        # the parser. This doesn't feel like the right place for this, though.
+
+        def unionWithTypes(types):
+            t = NeverType()
+            for tString in types:
+                t = unionWith(t, self.parser.parse(tString))
+            return t
+
+        # A type can productively combine with multiple types in a union.
+        types = [
+            "{A: any}",
+            "{B: any}",
+            "{A: any; B: any}",
+        ]
+        self.assertEqual(str(unionWithTypes(types)), "{A?: any; B?: any}")
+
+        types = [
+            "{A: any} | {B: any}",
+            "{A: any; B: any} | number",
+        ]
+        self.assertEqual(str(unionWithTypes(types)), "number | {A?: any; B?: any}")
 
 
 if __name__ == "__main__":
