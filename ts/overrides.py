@@ -44,6 +44,17 @@ def defaultOverride(typeParser):
     def addActorAny(a, comment):
         addActorWithType(a, "any", comment)
 
+    def addActorAboutAny(a):
+        addActorAny(a, "actor with complex types for about: page")
+
+    def addMsgAboutAny(a, m):
+        addMsgAny(a, m, "message with complex type for about: page")
+
+    def addQueryAboutAny(a, m):
+        newActors.addMessage(
+            Loc(), a, m, ["any", None], "message with complex type for about: page"
+        )
+
     devToolsProcessActors = ["BrowserToolboxDevToolsProcess", "DevToolsProcess"]
     for a in devToolsProcessActors:
         addActor(a)
@@ -79,6 +90,23 @@ def defaultOverride(typeParser):
         "Tests for this actor don't actually go through IPC, so we can't infer types.",
     )
 
+    # Various about: pages use actors with one or more very complex messages.
+    addActorAboutAny("ASRouter")
+
+    actor = "AboutNewTab"
+    addActor(actor)
+    addMsgAboutAny(actor, "ActivityStream:ContentToMain")
+
+    actor = "AboutPrivateBrowsing"
+    addActor(actor)
+    addQueryAboutAny(actor, "IsPromoBlocked")
+
+    for a in ["AboutWelcome", "AboutWelcomeShopping"]:
+        addActor(a)
+        addQueryAboutAny(a, "AWPage:ADD_SCREEN_IMPRESSION")
+        addQueryAboutAny(a, "AWPage:EVALUATE_SCREEN_TARGETING")
+
+    # Test actors.
     testActors = [
         "BrowserTestUtils",
         "Bug1622420",
