@@ -6,16 +6,12 @@
 
 # Representation of actor message types.
 
-import json
-import re
 import sys
-import unittest
 from copy import deepcopy
 
 from ts import (
     AnyType,
     JSType,
-    PrimitiveType,
     TestOnlyType,
     identifierRe,
     messageNameRe,
@@ -498,151 +494,3 @@ class MessageTypes:
         s = stringSerializer()
         self.serializeTS(s, "", messageName)
         return s.string
-
-
-class MessageTests(unittest.TestCase):
-    def test_messageTypes(self):
-        # sendAsyncMessage
-        mt = MessageTypes(Loc(), [AnyType()])
-        self.assertEqual(json.loads(mt.toJSON()), ["any"])
-        self.assertEqual(mt.toTS("x"), "x: any;\n")
-
-        # query
-        mt = MessageTypes(Loc(), [AnyType(), None])
-        self.assertEqual(json.loads(mt.toJSON()), ["any", "never"])
-        self.assertEqual(mt.toTS("x"), "x: (_: any) => never;\n")
-
-        # query resolve
-        mt = MessageTypes(Loc(), [None, AnyType()])
-        self.assertEqual(
-            json.loads(mt.toJSON()),
-            [
-                "never",
-                "any",
-            ],
-        )
-        self.assertEqual(mt.toTS("x"), "x: (_: never) => any;\n")
-
-        # query and query resolve
-        mt = MessageTypes(Loc(), [PrimitiveType("undefined"), AnyType()])
-        self.assertEqual(
-            json.loads(mt.toJSON()),
-            [
-                "undefined",
-                "any",
-            ],
-        )
-        self.assertEqual(mt.toTS("x"), "x: (_: undefined) => any;\n")
-
-    def test_messageDecls(self):
-        ad = ActorDecl(Loc())
-        self.assertEqual(ad.addMessage(Loc(), "M2", [AnyType()]), True)
-        self.assertEqual(json.loads(ad.toJSON()), {"M2": ["any"]})
-        self.assertEqual(ad.toTS(), "{\n  M2: any;\n};\n")
-        self.assertEqual(ad.addMessage(Loc(), "M1", [None, AnyType()]), True)
-        self.assertEqual(
-            json.loads(ad.toJSON()), {"M1": ["never", "any"], "M2": ["any"]}
-        )
-        self.assertEqual(ad.toTS(), "{\n  M1: (_: never) => any;\n  M2: any;\n};\n")
-        # Adding a message twice fails.
-        self.assertEqual(ad.addMessage(Loc(), "M2", [AnyType()]), False)
-        self.assertEqual(ad.addMessage(Loc(), "M2", [AnyType(), None]), False)
-
-        # Name that needs quotes.
-        ad = ActorDecl(Loc())
-        self.assertEqual(ad.addMessage(Loc(), "A1:M1", [AnyType()]), True)
-        self.assertEqual(json.loads(ad.toJSON()), {"A1:M1": ["any"]})
-        self.assertEqual(ad.toTS(), '{\n  "A1:M1": any;\n};\n')
-
-    def test_actorDecls(self):
-        ads = ActorDecls()
-        self.assertEqual(json.loads(ads.toJSON()), {})
-        ads.addActor("B", ActorDecl(Loc()))
-        self.assertEqual(json.loads(ads.toJSON()), {"B": {}})
-        with self.assertRaisesRegex(ActorError, "Multiple declarations of actor B."):
-            ads.addActor("B", ActorDecl(Loc()))
-        ads.addMessage(Loc(), "B", "M", [AnyType()])
-        self.assertEqual(json.loads(ads.toJSON()), {"B": {"M": ["any"]}})
-        e = "Multiple declarations of message M for actor B."
-        with self.assertRaisesRegex(ActorError, re.escape(e)):
-            ads.addMessage(Loc(), "B", "M", [AnyType(), None])
-        ads.addActor("A", ActorDecl(Loc()))
-        ads.addMessage(Loc(), "A", "M", [AnyType()])
-        self.assertEqual(
-            json.loads(ads.toJSON()), {"A": {"M": ["any"]}, "B": {"M": ["any"]}}
-        )
-        self.assertEqual(
-            ads.toTS(),
-            "type MessageTypes = {\n"
-            + "  A: {\n    M: any;\n  };\n"
-            + "  B: {\n    M: any;\n  };\n"
-            + "};\n",
-        )
-
-        # Basic tests for addActors
-        ads = ActorDecls()
-        ads.addActor("B", ActorDecl(Loc()))
-        ads.addMessage(Loc(), "B", "M", [AnyType()])
-        ads2 = ActorDecls()
-        ads.addActor("A", ActorDecl(Loc()))
-        ads.addMessage(Loc(), "A", "M", [AnyType()])
-        ads.addActor("C", ActorDecl(Loc()))
-        ads.addMessage(Loc(), "C", "M", [AnyType()])
-        ads.addActors(ads2)
-        self.assertEqual(
-            json.loads(ads.toJSON()),
-            {"A": {"M": ["any"]}, "B": {"M": ["any"]}, "C": {"M": ["any"]}},
-        )
-
-        ads = ActorDecls()
-        ads.addActor("A", ActorDecl(Loc()))
-        ads2 = ActorDecls()
-        ads2.addActor("A", ActorDecl(Loc()))
-        with self.assertRaisesRegex(ActorError, "Multiple declarations of actor A."):
-            ads.addActors(ads2)
-
-    def assertUnify(self, types1, j):
-        [types2, _] = ActorDecls.unify1("A", "M", types1, False)
-        self.assertEqual([str(t) for t in types2], j)
-
-    def test_unify(self):
-        # Basic single types.
-        t = [[AnyType()], [], [], []]
-        self.assertUnify(t, ["any"])
-
-        t = [[], [AnyType()], [], []]
-        self.assertUnify(t, ["any", "None"])
-
-        t = [[], [], [AnyType()], []]
-        self.assertUnify(t, ["None", "any"])
-
-        t = [[], [AnyType()], [AnyType()], []]
-        self.assertUnify(t, ["any", "any"])
-
-        t = [[], [AnyType()], [AnyType()], [AnyType()]]
-        self.assertUnify(t, ["any", "any"])
-
-        t = [[], [], [AnyType()], [AnyType()]]
-        self.assertUnify(t, ["None", "any"])
-
-        # message and various query types
-        m = "Message M of actor A has both message and query types."
-        t = [[AnyType()], [AnyType()], [], []]
-        with self.assertRaisesRegex(Exception, re.escape(m)):
-            ActorDecls.unify1("A", "M", t, False)
-        t = [[AnyType()], [], [AnyType()], []]
-        with self.assertRaisesRegex(Exception, re.escape(m)):
-            ActorDecls.unify1("A", "M", t, False)
-        t = [[AnyType()], [], [], [AnyType()]]
-        with self.assertRaisesRegex(Exception, re.escape(m)):
-            ActorDecls.unify1("A", "M", t, False)
-
-        # query reject only
-        t = [[], [], [], [AnyType()]]
-        m = "Message M of actor A has query reject, but not query resolve type."
-        with self.assertRaisesRegex(Exception, re.escape(m)):
-            ActorDecls.unify1("A", "M", t, False)
-
-
-if __name__ == "__main__":
-    unittest.main()

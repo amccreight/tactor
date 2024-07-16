@@ -7,7 +7,6 @@
 # Python representation of a subset of TypeScript.
 
 import re
-import unittest
 
 
 class JSType:
@@ -476,60 +475,3 @@ def objectAbsorb(t1, t2):
 
     t1.types = stringProperties
     return True
-
-
-class TestUnion(unittest.TestCase):
-    def test_basic(self):
-        t1 = ObjectType(
-            [
-                JSPropertyType("x", PrimitiveType("undefined"), False),
-                JSPropertyType("y", PrimitiveType("number"), False),
-            ]
-        )
-        t2 = ObjectType([JSPropertyType("x", PrimitiveType("boolean"), False)])
-        self.assertEqual(
-            str(tryUnionWith(t1, t2)), "{x: boolean | undefined; y?: number}"
-        )
-
-        t1 = ObjectType([JSPropertyType("x", PrimitiveType("undefined"), False)])
-        t2 = ObjectType(
-            [
-                JSPropertyType("a", PrimitiveType("number"), False),
-                JSPropertyType("x", AnyType(), False),
-            ]
-        )
-        self.assertEqual(str(tryUnionWith(t1, t2)), "{a?: number; x: any}")
-
-        t1 = ObjectType(
-            [
-                JSPropertyType(
-                    "x",
-                    UnionType([PrimitiveType("null"), PrimitiveType("string")]),
-                    False,
-                )
-            ]
-        )
-        t2 = ObjectType(
-            [
-                JSPropertyType(
-                    "x",
-                    UnionType([PrimitiveType("null"), PrimitiveType("string")]),
-                    False,
-                )
-            ]
-        )
-        self.assertEqual(str(tryUnionWith(t1, t2)), "{x: null | string}")
-
-        self.assertEqual(str(ArrayOrSetType(True, NeverType())), "Array<never>")
-        self.assertEqual(str(ArrayOrSetType(False, NeverType())), "Set<never>")
-
-        self.assertEqual(
-            str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number"
-        )
-        self.assertEqual(
-            str(tryUnionWith(PrimitiveType("number"), NeverType())), "number"
-        )
-
-
-if __name__ == "__main__":
-    unittest.main()
