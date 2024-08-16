@@ -108,6 +108,7 @@ def defaultOverride(typeParser):
 
     # Test actors.
     testActors = [
+        "AppTestDelegate",
         "BrowserTestUtils",
         "Bug1622420",
         "ReftestFission",
