@@ -120,4 +120,24 @@ def defaultOverride(typeParser):
     for a in testActors:
         addActorTestOnly(a)
 
+    actor = "FormAutofill"
+    addActor(actor)
+    addMsg(
+        actor,
+        "FormAutofill:FillFields",
+        [
+            None,
+            "Map<string, {filledState: string; filledValue: string; value: string}>",
+        ],
+        "TEMPORARY OVERRIDE We now support Maps.",
+    )
+    addMsg(
+        actor,
+        "FormAutofill:OnFormSubmit",
+        [
+            "{formFilledData: Map<string, {filledState: string; filledValue: string; value: string}>; rootElementId: string}"
+        ],
+        "TEMPORARY OVERRIDE We now support Maps.",
+    )
+
     return newActors
