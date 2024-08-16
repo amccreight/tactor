@@ -89,7 +89,9 @@ def lookAtActors(args):
 
         if module == "JSIPCTypeSend":
             tp = typePatt.match(msg)
-            assert tp
+            if not tp:
+                print("Unknown JSIPCTypeSend: " + msg)
+                assert tp
 
             actorName = tp.group(2)
             if actorName in actorsToIgnore:
