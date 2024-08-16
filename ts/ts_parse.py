@@ -13,6 +13,7 @@ from ts import (
     AnyType,
     ArrayOrSetType,
     JSPropertyType,
+    MapType,
     NeverType,
     ObjectType,
     PrimitiveType,
@@ -34,7 +35,9 @@ def _safeLinenoValue(t):
 
 
 class Tokenizer(object):
-    reserved = set(("any", "never", "testOnly", "Array", "Set")) | set(primitiveTypes)
+    reserved = set(("any", "never", "testOnly", "Array", "Set", "Map")) | set(
+        primitiveTypes
+    )
 
     tokens = [
         "ID",
@@ -126,6 +129,7 @@ class Parser(Tokenizer):
         | TestOnlyType
         | ObjectType
         | ArrayOrSetType
+        | MapType
         | '|' JSType
         | JSType '|' JSType
         | '(' JSType ')'"""
@@ -234,6 +238,10 @@ class Parser(Tokenizer):
         | SET '<' JSType '>'"""
         assert p[1] == "Array" or p[1] == "Set"
         p[0] = ArrayOrSetType(p[1] == "Array", p[3])
+
+    def p_MapType(self, p):
+        """MapType : MAP '<' JSType ',' JSType '>'"""
+        p[0] = MapType(p[3], p[5])
 
     # Top level actor message declarations.
 

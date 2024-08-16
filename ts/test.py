@@ -24,6 +24,7 @@ from ts import (
     AnyType,
     ArrayOrSetType,
     JSPropertyType,
+    MapType,
     NeverType,
     ObjectType,
     PrimitiveType,
@@ -82,6 +83,9 @@ class TestUnion(unittest.TestCase):
 
         self.assertEqual(str(ArrayOrSetType(True, NeverType())), "Array<never>")
         self.assertEqual(str(ArrayOrSetType(False, NeverType())), "Set<never>")
+        self.assertEqual(
+            str(MapType(PrimitiveType("number"), NeverType())), "Map<number, never>"
+        )
 
         self.assertEqual(
             str(tryUnionWith(NeverType(), PrimitiveType("number"))), "number"
@@ -113,6 +117,8 @@ class BasicParseTests(unittest.TestCase):
         self.parseAndCheckFail("Array<>", 'Syntax error near ">"')
         self.parseAndCheck("Set<never>")
         self.parseAndCheckFail("Set<>", 'Syntax error near ">"')
+        self.parseAndCheck("Map<never, never>")
+        self.parseAndCheckFail("Map<>", 'Syntax error near ">"')
 
 
 class TestTypePrinting(unittest.TestCase):
@@ -166,6 +172,14 @@ class TestTypePrinting(unittest.TestCase):
         self.check("Set<nsIPrincipal>", '["set", "nsIPrincipal"]')
         self.check("Set<Set<any>>", '["set", ["set", "any"]]')
         self.check("Set<Set<never>>", '["set", ["set", "never"]]')
+
+        # Map
+        self.check("Map<any, number>", '["map", "any", "number"]')
+        self.check("Map<never, any>", '["map", "never", "any"]')
+        self.check("Map<nsIPrincipal, number>", '["map", "nsIPrincipal", "number"]')
+        self.check(
+            "Map<Map<any, never>, number>", '["map", ["map", "any", "never"], "number"]'
+        )
 
         # union
         self.check("any | any", '["union", "any", "any"]')
@@ -392,6 +406,13 @@ class TestTypeUnion(unittest.TestCase):
         # Test that we simplify through various nested unions and arrays.
         t1 = "Array<Array<{A: any} | {A: any; B: any}> | number>"
         t2 = "Array<Array<{A: any; B?: any}> | number>"
+        assertSimplifies(t1, t2)
+
+        # Test that we simplify both keys and values of nested maps.
+        inner1 = "Map<{A: any} | {A: any; B: any}, number> | number"
+        t1 = "Map<" + inner1 + ", " + inner1 + ">"
+        inner2 = "Map<{A: any; B?: any}, number> | number"
+        t2 = "Map<" + inner2 + ", " + inner2 + ">"
         assertSimplifies(t1, t2)
 
         # Test that we simplify types in object types.

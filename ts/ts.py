@@ -251,6 +251,45 @@ class ArrayOrSetType(JSType):
         self.elementType.simplify()
 
 
+class MapType(JSType):
+    def __init__(self, keyType, valueType):
+        assert keyType is not None
+        assert valueType is not None
+        self.keyType = keyType
+        self.valueType = valueType
+
+    def __eq__(self, o):
+        if self.__class__ != o.__class__:
+            return False
+        return self.keyType == o.keyType and self.valueType == o.valueType
+
+    def __str__(self):
+        keyString = str(self.keyType)
+        valueString = str(self.valueType)
+        return f"Map<{keyString}, {valueString}>"
+
+    def jsonStr(self):
+        keyString = self.keyType.jsonStr()
+        valueString = self.valueType.jsonStr()
+        return f'["map", {keyString}, {valueString}]'
+
+    def __lt__(self, o):
+        if self.classOrd() != o.classOrd():
+            return self.classOrd() < o.classOrd()
+        if self.keyType < o.keyType:
+            return True
+        if o.keyType < self.keyType:
+            return False
+        return self.valueType < o.valueType
+
+    def classOrd(self):
+        return 6
+
+    def simplify(self):
+        self.keyType.simplify()
+        self.valueType.simplify()
+
+
 class UnionType(JSType):
     def __init__(self, tt):
         assert len(tt) > 1
@@ -273,7 +312,7 @@ class UnionType(JSType):
         return s
 
     def classOrd(self):
-        return 6
+        return 7
 
     def __lt__(self, o):
         if self.classOrd() != o.classOrd():
@@ -395,6 +434,12 @@ def tryUnionWith(t1, t2):
         # Array<a|b> is nicer than Array<a> | Array<b> so always merge them,
         # unless one is being used as the type for an empty array.
         t1.elementType = unionWith(t1.elementType, t2.elementType)
+        return t1
+    if isinstance(t1, MapType):
+        if not isinstance(t2, MapType):
+            return None
+        t1.keyType = unionWith(t1.keyType, t2.keyType)
+        t1.valueType = unionWith(t1.valueType, t2.valueType)
         return t1
     if isinstance(t1, UnionType):
         assert not isinstance(t2, UnionType)
