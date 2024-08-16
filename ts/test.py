@@ -539,7 +539,10 @@ class MessageTests(unittest.TestCase):
 
         # query reject only
         t = [[], [], [], [AnyType()]]
-        m = "Message M of actor A has query reject, but not query resolve type."
+        m = (
+            "Message M of actor A has a query reject type but not a query "
+            + "resolve type, which we can't really represent."
+        )
         with self.assertRaisesRegex(Exception, re.escape(m)):
             ActorDecls.unify1("A", "M", t, False)
 

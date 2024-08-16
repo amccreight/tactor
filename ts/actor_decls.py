@@ -12,6 +12,7 @@ from copy import deepcopy
 from ts import (
     AnyType,
     JSType,
+    NeverType,
     TestOnlyType,
     identifierRe,
     messageNameRe,
@@ -264,12 +265,22 @@ class ActorDecls:
                     f"Message {m} of actor {a} " + "has both message and query types."
                 )
             if len(newTypes) == 4 and newTypes[2] is None:
-                # XXX Not sure what we should do for this.
-                raise Exception(
-                    f"Message {m} of actor {a} has "
-                    + "query reject, but not query "
-                    + "resolve type."
-                )
+                # We have a query reject type but not a query resolve type. The
+                # C++ type representation relies on the presence of a query
+                # resolve type to imply the query reject `any` type, so we
+                # can't accurately represent this situation. However, the only
+                # place we're likely going to do this is for test actors where
+                # we override the type with `testOnly` anyways, so hack this
+                # into the empty type if the actor is on the allow list of
+                # test actors.
+                if a != "TestWindow" and a != "TestProcessActor":
+                    raise Exception(
+                        f"Message {m} of actor {a} has a query reject type "
+                        + "but not a query resolve type, which we can't "
+                        + "really represent."
+                    )
+                newTypes[2] = NeverType()
+            # Keep only the query and query resolve types.
             newTypes = newTypes[1:3]
             if len(newTypes) == 1:
                 newTypes.append(None)
