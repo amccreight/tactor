@@ -71,7 +71,7 @@ def defaultOverride(typeParser):
     addMsg(
         actor,
         "RunListener",
-        [None, "undefined | structuredClone"],
+        [None, "undefined | structuredClone | Array<undefined | structuredClone>"],
         "This message is very frequent and boring, so we don't log it.",
     )
     # The Conduits messages CreateProxyContext and PortMessage have multiple kinds,
@@ -88,6 +88,15 @@ def defaultOverride(typeParser):
     addActorAny(
         "AboutPocket",
         "Tests for this actor don't actually go through IPC, so we can't infer types.",
+    )
+
+    actor = "ReportBrokenSite"
+    addActor(actor)
+    addMsg(
+        actor,
+        "GetWebCompatInfo",
+        [None, "any"],
+        "The message reply contains complex about:support-like information.",
     )
 
     # Various about: pages use actors with one or more very complex messages.
@@ -110,7 +119,7 @@ def defaultOverride(typeParser):
     testActors = [
         "AppTestDelegate",
         "BrowserTestUtils",
-        "Bug1622420",
+        "FissionTestHelper",
         "ReftestFission",
         "StartupContentSubframe",
         "TestProcessActor",
@@ -119,25 +128,9 @@ def defaultOverride(typeParser):
     ]
     for a in testActors:
         addActorTestOnly(a)
-
-    actor = "FormAutofill"
-    addActor(actor)
-    addMsg(
-        actor,
-        "FormAutofill:FillFields",
-        [
-            None,
-            "Map<string, {filledState: string; filledValue: string; value: string}>",
-        ],
-        "TEMPORARY OVERRIDE We now support Maps.",
-    )
-    addMsg(
-        actor,
-        "FormAutofill:OnFormSubmit",
-        [
-            "{formFilledData: Map<string, {filledState: string; filledValue: string; value: string}>; rootElementId: string}"
-        ],
-        "TEMPORARY OVERRIDE We now support Maps.",
-    )
+    # Bug1622420 can't be testOnly because it has no parent esModuleURI
+    # for validation.
+    # MarionetteReftest can't be testOnly because it is stored in remote.jar,
+    # which is not testing only.
 
     return newActors
