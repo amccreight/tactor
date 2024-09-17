@@ -74,10 +74,10 @@ def defaultOverride(typeParser):
         [None, "undefined | structuredClone | Array<undefined | structuredClone>"],
         "This message is very frequent and boring, so we don't log it.",
     )
-    # The Conduits messages CreateProxyContext and PortMessage have multiple kinds,
-    # as seen in bug 1903128 and bug 1903134. Unfortunately, there's no way to allow
-    # this at the level of individual messages, so for now anything that uses them
-    # with the extra kind we're ignoring will fail to typecheck.
+    # The Conduits message CreateProxyContext has multiple kinds, as seen in bug 1903128.
+    # Unfortunately, there's no way to allow this at the level of individual messages, so
+    # for now anything that uses it with the extra kind we're ignoring will fail
+    # to typecheck.
 
     actor = "ExtensionContent"
     addActor(actor)

@@ -118,10 +118,6 @@ def lookAtActors(args):
                     # query, whereas everything else uses it as a message. This causes
                     # problems, so ignore it for now. See bug 1903128.
                     continue
-                if messageName == "PortMessage" and kind == 2:
-                    # PortMessage is used exactly as much for Message as it is for
-                    # QueryResolve. I don't know what that means. See bug 1903134.
-                    continue
 
             currType = typeActors.setdefault(rawType, {})
             currActor = currType.setdefault(actorName, {})
