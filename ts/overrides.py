@@ -85,6 +85,11 @@ def defaultOverride(typeParser):
         actor, "Execute", [None, "Array<any>"], "Return values from extension scripts."
     )
 
+    actor = "TestProcessTypeCheck"
+    addActor(actor)
+    addMsg(actor, "Test", ["{ good: boolean }"], "Weird test actor")
+    addMsg(actor, "GetTestCount", ["(_: undefined) => never"], "Weird test actor")
+
     addActorAny(
         "AboutPocket",
         "Tests for this actor don't actually go through IPC, so we can't infer types.",
@@ -97,6 +102,10 @@ def defaultOverride(typeParser):
         "GetWebCompatInfo",
         [None, "any"],
         "The message reply contains complex about:support-like information.",
+    )
+
+    addActorAny(
+        "MarionetteCommands", "actor with complex types only used for automation"
     )
 
     # Various about: pages use actors with one or more very complex messages.
@@ -119,6 +128,7 @@ def defaultOverride(typeParser):
     testActors = [
         "AppTestDelegate",
         "BrowserTestUtils",
+        "ForceRefresh",
         "FissionTestHelper",
         "ReftestFission",
         "StartupContentSubframe",
