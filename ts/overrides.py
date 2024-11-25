@@ -4,10 +4,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# This is a helper file for logparse.py that gives actors and messages we should
-# ignore, because their inferred types will be messy and/or wrong. This is in a
-# separate file to make it easy to find, and because it will need to import
-# various types.
+# This is a helper file for logparse.py that hard codes the type of specific
+# JS actor messages, because their inferred types will be messy and/or wrong.
+# This is in a separate file to make it easy to find, and because it will need
+# to import various types.
 
 from actor_decls import ActorDecl, ActorDecls, Loc
 

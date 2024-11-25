@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# Parsing JS actor type logging.
+# Parsing JS actor type logs.
 
 # This takes the output of Firefox modified to log a subset of TypeScript for
 # JS actor messages and tries to combine the types of different instances
@@ -67,7 +67,7 @@ def lookAtActors(args):
     # Raw type strings to actor names to message names to kinds.
     # Kinds is an integer or a set of integers.
     # The idea here is that more than 99.9% of the raw type strings
-    # we see are duplicates, so the data structured is focused on
+    # we see are duplicates, so the data structure is focused on
     # eliminating duplicates as efficiently as possible.
     typeActors = {}
 
@@ -100,10 +100,6 @@ def lookAtActors(args):
             messageName = tp.group(3)
             kind = kindToEnum[len(tp.group(4))]
 
-            # XXX In the previous version of this script, I was skipping
-            # messages with actorName == "DevToolsFrame" and
-            # messageName == "DevToolsFrameChild:packet".
-
             rawType = tp.group(5)
             if rawType == "NO VALUE":
                 # The JS IPC value being passed in was None, so nothing to do.
@@ -126,8 +122,8 @@ def lookAtActors(args):
                 continue
 
             if isinstance(existingKind, int):
-                # Multiple kinds are very rare, so don't create a set
-                # unless we really need one.
+                # Multiple kinds are very rare, so for efficiency don't create
+                # a set unless we really need one.
                 currActor[messageName] = set([existingKind])
             else:
                 assert isinstance(existingKind, set)

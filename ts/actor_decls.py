@@ -273,7 +273,7 @@ class ActorDecls:
                 # we override the type with `testOnly` anyways, so hack this
                 # into the empty type if the actor is on the allow list of
                 # test actors.
-                if a != "TestWindow" and a != "TestProcessActor":
+                if a not in set(["TestWindow", "TestProcessActor"]):
                     raise Exception(
                         f"Message {m} of actor {a} has a query reject type "
                         + "but not a query resolve type, which we can't "
