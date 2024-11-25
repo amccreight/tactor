@@ -39,6 +39,7 @@ from ts_parse import (
 )
 
 
+# Tests for combining types together.
 class TestUnion(unittest.TestCase):
     def test_basic(self):
         t1 = ObjectType(
@@ -121,6 +122,7 @@ class BasicParseTests(unittest.TestCase):
         self.parseAndCheckFail("Map<>", 'Syntax error near ">"')
 
 
+# Tests for the two possible type outputs, TypeScript and JSON.
 class TestTypePrinting(unittest.TestCase):
     def __init__(self, methodName):
         unittest.TestCase.__init__(self, methodName)
@@ -207,7 +209,7 @@ class TestTypePrinting(unittest.TestCase):
             "any | string | undefined",
             '["union", ["union", "any", "string"], "undefined"]',
         )
-        # unary union, which seems to be used by Prettier.
+        # Unary union, which can occur in Prettier output.
         self.checkString("| any", "any", '"any"')
         self.checkString(
             "| any | boolean", "any | boolean", '["union", "any", "boolean"]'
@@ -389,7 +391,7 @@ class TestTypeUnion(unittest.TestCase):
 
         def assertSimplifies(tString, expected):
             t = self.parser.parse(tString)
-            t.simplify()
+            t = t.simplify()
             self.assertEqual(str(t), expected)
 
         t1 = "{A: any} | {A: any; B: any} | {C: any}"
@@ -419,6 +421,11 @@ class TestTypeUnion(unittest.TestCase):
         t1 = "{C: {A: any} | {A: any; B: any}}"
         t2 = "{C: {A: any; B?: any}}"
         assertSimplifies(t1, t2)
+
+        # simplify() should not create unions with only one type.
+        tAnyOrAny = self.parser.parse("any | any")
+        tAnyOrAny = tAnyOrAny.simplify()
+        self.assertEqual(tAnyOrAny.jsonStr(), "any")
 
 
 class MessageTests(unittest.TestCase):
