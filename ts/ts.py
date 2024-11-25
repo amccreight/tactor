@@ -308,8 +308,14 @@ class UnionType(JSType):
         return " | ".join(sorted(map(lambda t: str(t), self.types)))
 
     def jsonStr(self):
+        assert len(self.types) > 0
+        # XXX absorbNonUnion can create a singleton union
+        # type, so work around it by dropping the union. See
+        # the comment there for more details.
+        if len(self.types) == 1:
+            return self.types[0].jsonStr()
+
         # ["union", t1, t2]
-        assert len(self.types) >= 2
         s = self.types[0].jsonStr()
         for t in self.types[1:]:
             s = f'["union", {s}, {t.jsonStr()}]'
@@ -369,6 +375,11 @@ class UnionType(JSType):
                 # we need to keep trying with the new type.
                 t2 = t2New
         newTypes.append(t2)
+        assert len(newTypes) > 0
+        # XXX Sometimes we can end up with only 1 type here. Ideally we'd
+        # change the absorb functions to all return a type to allow us
+        # to transform a singleton union into the underlying type but I don't
+        # feel like it right now.
         self.types = newTypes
 
     # The C++ logging does not use heuristics to combine object types, so this
