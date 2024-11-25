@@ -425,7 +425,7 @@ class TestTypeUnion(unittest.TestCase):
         # simplify() should not create unions with only one type.
         tAnyOrAny = self.parser.parse("any | any")
         tAnyOrAny = tAnyOrAny.simplify()
-        self.assertEqual(tAnyOrAny.jsonStr(), "any")
+        self.assertEqual(tAnyOrAny.jsonStr(), '"any"')
 
 
 class MessageTests(unittest.TestCase):
