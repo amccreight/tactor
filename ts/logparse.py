@@ -45,16 +45,14 @@ serializerMsgPatt = re.compile("JSIPCSerializer (.+)$")
 fallbackMsg = re.compile("UntypedFromJSVal fallback: (.+)")
 
 
-# This provides a way to skip specific actors, although in the long term it
-# is better to ignore these messages in Firefox itself so we avoid using
-# IPDL serialization.
-actorsToIgnore = set([])
-
-
-typeParser = TypeParser()
-
-
 def lookAtActors(args):
+    # This provides a way to skip specific actors, although in the long term it
+    # is better to ignore these messages in Firefox itself so we avoid using
+    # IPDL serialization.
+    actorsToIgnore = set([])
+
+    typeParser = TypeParser()
+
     kindToEnum = {
         len("Message"): 0,
         len("Query"): 1,
@@ -275,12 +273,50 @@ def lookAtActors(args):
         print()
 
 
+def commonPrefix(names0):
+    # When sorted, first and last must have the most different names.
+    names = sorted(names0)
+    prefix = 0
+    for c1, c2 in zip(names[0], names[-1]):
+        if c1 != c2:
+            break
+        prefix += 1
+    return prefix
+
+
+def findFailures(args):
+    prefix = commonPrefix(args.files)
+
+    failMessages = {}
+    checkFailPatt = re.compile("Type checking failed: (.*)$")
+    for fileName in args.files:
+        with open(fileName) as file:
+            file.reconfigure(encoding="latin1")
+            for l in file:
+                checkFailMatch = checkFailPatt.search(l)
+                if not checkFailMatch:
+                    continue
+                message = checkFailMatch.group(1)
+                failMessages.setdefault(message, set([])).add(fileName)
+
+    for m in sorted(failMessages.keys()):
+        print(m)
+        for f in sorted(failMessages[m]):
+            print("  " + f[prefix:])
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("files", nargs="+", help="Names of files to parse.")
 parser.add_argument("--json", help="Print output as JSON.", action="store_true")
 parser.add_argument("--ts", help="Print output as TypeScript.", action="store_true")
 parser.add_argument("--no-overrides", help="Disable overrides.", action="store_true")
 parser.add_argument("--ignore-errors", help="Ignore parse errors.", action="store_true")
+parser.add_argument(
+    "--find-failures", help="Only look for type checking failures.", action="store_true"
+)
 args = parser.parse_args()
 
-lookAtActors(args)
+if args.find_failures:
+    findFailures(args)
+else:
+    lookAtActors(args)
