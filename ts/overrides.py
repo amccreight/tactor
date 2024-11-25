@@ -28,7 +28,7 @@ def defaultOverride(typeParser):
         newActors.addMessage(Loc(), a, m, types, comment)
 
     def addMsgAny(a, m, comment):
-        newActors.addMessage(Loc(), a, m, ["any"], comment)
+        addMsg(a, m, ["any"], comment)
 
     def addMsgAnyComplex(a, m):
         addMsgAny(a, m, "This type is very complex.")
@@ -51,9 +51,7 @@ def defaultOverride(typeParser):
         addMsgAny(a, m, "message with complex type for about: page")
 
     def addQueryAboutAny(a, m):
-        newActors.addMessage(
-            Loc(), a, m, ["any", None], "message with complex type for about: page"
-        )
+        addMsg(a, m, ["any", None], "message with complex type for about: page")
 
     devToolsProcessActors = ["BrowserToolboxDevToolsProcess", "DevToolsProcess"]
     for a in devToolsProcessActors:
@@ -88,7 +86,7 @@ def defaultOverride(typeParser):
     actor = "TestProcessTypeCheck"
     addActor(actor)
     addMsg(actor, "Test", ["{ good: boolean }"], "Weird test actor")
-    addMsg(actor, "GetTestCount", ["(_: undefined) => never"], "Weird test actor")
+    addMsg(actor, "GetTestCount", ["undefined", "never"], "Weird test actor")
 
     addActorAny(
         "AboutPocket",

@@ -335,6 +335,8 @@ class ActorDecl:
         if messageName in self.messages:
             return False
         assert messageNameRe.fullmatch(messageName)
+        for kindType in t:
+            assert kindType is None or isinstance(kindType, JSType)
         self.messages[messageName] = MessageTypes(loc, t, comment)
         return True
 
