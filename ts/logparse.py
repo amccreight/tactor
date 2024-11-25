@@ -90,7 +90,9 @@ def lookAtActors(args):
         if module == "JSIPCTypeSend":
             tp = typePatt.match(msg)
             if not tp:
-                print("Unknown JSIPCTypeSend: " + msg)
+                print("Unknown JSIPCTypeSend: " + msg, file=sys.stderr)
+                if args.ignore_errors:
+                    continue
                 assert tp
 
             actorName = tp.group(2)
@@ -164,6 +166,8 @@ def lookAtActors(args):
         except ActorError as e:
             print(e, file=sys.stderr)
             print(f"  while parsing: {rawType}", file=sys.stderr)
+            if args.ignore_errors:
+                continue
             return
         typeUsed = False
         for actorName, messages in actors0.items():
@@ -272,6 +276,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--json", help="Print output as JSON.", action="store_true")
 parser.add_argument("--ts", help="Print output as TypeScript.", action="store_true")
 parser.add_argument("--no-overrides", help="Disable overrides", action="store_true")
+parser.add_argument("--ignore-errors", help="Ignore parse errors", action="store_true")
 args = parser.parse_args()
 
 lookAtActors(args)
