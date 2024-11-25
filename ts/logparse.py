@@ -75,7 +75,7 @@ def lookAtActors(args):
 
     fallbackFor = {}
     otherSerializerMsgs = {}
-    otherMsgs = []
+    otherMsgs = set([])
 
     ignoredActors = set([])
 
@@ -139,7 +139,7 @@ def lookAtActors(args):
             otherSerializerMsgs[msg] = otherSerializerMsgs.setdefault(msg, 0) + 1
             continue
 
-        otherMsgs.append(f"{module}: {msg}")
+        otherMsgs.add(f"{module}: {msg}")
 
     # Something like 94% of the total runtime of this script is up to this
     # point, so don't bother spending much time optimizing the rest of it.
@@ -257,7 +257,7 @@ def lookAtActors(args):
         print("=========================")
         print()
         print("Other logged messages")
-        for m in otherMsgs:
+        for m in sorted(otherMsgs):
             print("  " + m)
         print()
 
