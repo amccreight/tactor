@@ -13,8 +13,9 @@ class JSType:
     def __str__(self):
         return "JSTYPE"
 
+    # This is used for the non-aggregate types.
     def simplify(self):
-        return
+        return self
 
 
 class AnyType(JSType):
@@ -209,7 +210,8 @@ class ObjectType(JSType):
 
     def simplify(self):
         for p in self.types:
-            p.type.simplify()
+            p.type = p.type.simplify()
+        return self
 
 
 class ArrayOrSetType(JSType):
@@ -248,7 +250,8 @@ class ArrayOrSetType(JSType):
         return 5
 
     def simplify(self):
-        self.elementType.simplify()
+        self.elementType = self.elementType.simplify()
+        return self
 
 
 class MapType(JSType):
@@ -286,8 +289,9 @@ class MapType(JSType):
         return 6
 
     def simplify(self):
-        self.keyType.simplify()
-        self.valueType.simplify()
+        self.keyType = self.keyType.simplify()
+        self.valueType = self.valueType.simplify()
+        return self
 
 
 class UnionType(JSType):
@@ -371,8 +375,7 @@ class UnionType(JSType):
     # union might contain multiple object types that we want to combine. This
     # process is quadratic, so we only want to do it on incoming logged types.
     def simplify(self):
-        for t in self.types:
-            t.simplify()
+        self.types = [t.simplify() for t in self.types]
 
         newTypes = []
         for i in range(len(self.types)):
@@ -392,7 +395,14 @@ class UnionType(JSType):
                 self.types[j] = None
                 ti = tiNew
             newTypes.append(ti)
+
+        assert len(newTypes) > 0
+        if len(newTypes) == 1:
+            # We collapsed all of the types to one type, so we no
+            # longer want a union.
+            return newTypes[0]
         self.types = newTypes
+        return self
 
 
 # Reimplementation of JSActorMessageType::TryUnionWith()
