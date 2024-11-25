@@ -55,8 +55,6 @@ typeParser = TypeParser()
 
 
 def lookAtActors(args):
-    sys.stdin.reconfigure(encoding="latin1")
-
     kindToEnum = {
         len("Message"): 0,
         len("Query"): 1,
@@ -80,68 +78,73 @@ def lookAtActors(args):
     ignoredActors = set([])
 
     # Parse the input.
-    for l in sys.stdin:
-        modulesMatch = mozLogModulesPatt.search(l)
-        if not modulesMatch:
-            continue
-        module = modulesMatch.group(1)
-        msg = modulesMatch.group(2)
-
-        if module == "JSIPCTypeSend":
-            tp = typePatt.match(msg)
-            if not tp:
-                print("Unknown JSIPCTypeSend: " + msg, file=sys.stderr)
-                if args.ignore_errors:
+    for fileName in args.files:
+        with open(fileName) as file:
+            file.reconfigure(encoding="latin1")
+            for l in file:
+                modulesMatch = mozLogModulesPatt.search(l)
+                if not modulesMatch:
                     continue
-                assert tp
+                module = modulesMatch.group(1)
+                msg = modulesMatch.group(2)
 
-            actorName = tp.group(2)
-            if actorName in actorsToIgnore:
-                ignoredActors.add(actorName)
-                continue
-            messageName = tp.group(3)
-            kind = kindToEnum[len(tp.group(4))]
+                if module == "JSIPCTypeSend":
+                    tp = typePatt.match(msg)
+                    if not tp:
+                        print("Unknown JSIPCTypeSend: " + msg, file=sys.stderr)
+                        if args.ignore_errors:
+                            continue
+                        assert tp
 
-            rawType = tp.group(5)
-            if rawType == "NO VALUE":
-                # The JS IPC value being passed in was None, so nothing to do.
-                continue
-            if rawType == "FAILED":
-                failedType.append([actorName, messageName])
-                continue
+                    actorName = tp.group(2)
+                    if actorName in actorsToIgnore:
+                        ignoredActors.add(actorName)
+                        continue
+                    messageName = tp.group(3)
+                    kind = kindToEnum[len(tp.group(4))]
 
-            if actorName == "Conduits":
-                if messageName == "CreateProxyContext" and kind == 1:
-                    # test_ext_subframes_privileges.html uses CreateProxyContext as a
-                    # query, whereas everything else uses it as a message. This causes
-                    # problems, so ignore it for now. See bug 1903128.
+                    rawType = tp.group(5)
+                    if rawType == "NO VALUE":
+                        # The JS IPC value being passed in was None, so nothing to do.
+                        continue
+                    if rawType == "FAILED":
+                        failedType.append([actorName, messageName])
+                        continue
+
+                    if actorName == "Conduits":
+                        if messageName == "CreateProxyContext" and kind == 1:
+                            # test_ext_subframes_privileges.html uses CreateProxyContext as a
+                            # query, whereas everything else uses it as a message. This causes
+                            # problems, so ignore it for now. See bug 1903128.
+                            continue
+
+                    currType = typeActors.setdefault(rawType, {})
+                    currActor = currType.setdefault(actorName, {})
+                    existingKind = currActor.setdefault(messageName, kind)
+                    if existingKind == kind:
+                        continue
+
+                    if isinstance(existingKind, int):
+                        # Multiple kinds are very rare, so for efficiency don't create
+                        # a set unless we really need one.
+                        currActor[messageName] = set([existingKind])
+                    else:
+                        assert isinstance(existingKind, set)
+                        existingKind.add(kind)
                     continue
 
-            currType = typeActors.setdefault(rawType, {})
-            currActor = currType.setdefault(actorName, {})
-            existingKind = currActor.setdefault(messageName, kind)
-            if existingKind == kind:
-                continue
+                if module == "JSIPCSerializer":
+                    fallbackMatch = fallbackMsg.fullmatch(msg)
+                    if fallbackMatch:
+                        failCase = fallbackMatch.group(1)
+                        fallbackFor[failCase] = fallbackFor.setdefault(failCase, 0) + 1
+                        continue
+                    otherSerializerMsgs[msg] = (
+                        otherSerializerMsgs.setdefault(msg, 0) + 1
+                    )
+                    continue
 
-            if isinstance(existingKind, int):
-                # Multiple kinds are very rare, so for efficiency don't create
-                # a set unless we really need one.
-                currActor[messageName] = set([existingKind])
-            else:
-                assert isinstance(existingKind, set)
-                existingKind.add(kind)
-            continue
-
-        if module == "JSIPCSerializer":
-            fallbackMatch = fallbackMsg.fullmatch(msg)
-            if fallbackMatch:
-                failCase = fallbackMatch.group(1)
-                fallbackFor[failCase] = fallbackFor.setdefault(failCase, 0) + 1
-                continue
-            otherSerializerMsgs[msg] = otherSerializerMsgs.setdefault(msg, 0) + 1
-            continue
-
-        otherMsgs.add(f"{module}: {msg}")
+                otherMsgs.add(f"{module}: {msg}")
 
     # Something like 94% of the total runtime of this script is up to this
     # point, so don't bother spending much time optimizing the rest of it.
@@ -273,10 +276,11 @@ def lookAtActors(args):
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument("files", nargs="+", help="Names of files to parse.")
 parser.add_argument("--json", help="Print output as JSON.", action="store_true")
 parser.add_argument("--ts", help="Print output as TypeScript.", action="store_true")
-parser.add_argument("--no-overrides", help="Disable overrides", action="store_true")
-parser.add_argument("--ignore-errors", help="Ignore parse errors", action="store_true")
+parser.add_argument("--no-overrides", help="Disable overrides.", action="store_true")
+parser.add_argument("--ignore-errors", help="Ignore parse errors.", action="store_true")
 args = parser.parse_args()
 
 lookAtActors(args)
