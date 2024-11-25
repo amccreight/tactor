@@ -51,7 +51,7 @@ def defaultOverride(typeParser):
         addMsgAny(a, m, "message with complex type for about: page")
 
     def addQueryAboutAny(a, m):
-        addMsg(a, m, ["any", None], "message with complex type for about: page")
+        addMsg(a, m, ["any", None], "query message with complex type for about: page")
 
     devToolsProcessActors = ["BrowserToolboxDevToolsProcess", "DevToolsProcess"]
     for a in devToolsProcessActors:
@@ -106,6 +106,43 @@ def defaultOverride(typeParser):
         "MarionetteCommands", "actor with complex types only used for automation"
     )
 
+    # WebDriver
+    actor = "MessageHandlerFrame"
+    addActor(actor)
+    addMsg(
+        actor,
+        "MessageHandlerFrameChild:messageHandlerEvent",
+        [
+            "{ " + "contextInfo: { contextId: number; type: string };"
+            "data: any;"
+            "name: string;"
+            "sessionId: string;"
+            "}"
+        ],
+        "The data field for this WebDriver actor is very complex.",
+    )
+    addMsg(
+        actor,
+        "MessageHandlerFrameParent:sendCommand",
+        [None, "any"],
+        "This WebDriver message is very complex.",
+    )
+
+    actor = "UserCharacteristics"
+    addActor(actor)
+    addMsg(
+        actor,
+        "UserCharacteristics::PageReady",
+        [
+            "{ "
+            "debug: Array<string>; "
+            "gamepads: Array<string>; "
+            "output: Map<string, string | number | boolean>;"
+            "}"
+        ],
+        "TEMP: See bug 1932495.",
+    )
+
     # Various about: pages use actors with one or more very complex messages.
     addActorAboutAny("ASRouter")
 
@@ -126,13 +163,14 @@ def defaultOverride(typeParser):
     testActors = [
         "AppTestDelegate",
         "BrowserTestUtils",
-        "ForceRefresh",
+        "DocShellHelpers",
         "FissionTestHelper",
+        "ForceRefresh",
         "ReftestFission",
+        "SpecialPowers",
         "StartupContentSubframe",
         "TestProcessActor",
         "TestWindow",
-        "SpecialPowers",
     ]
     for a in testActors:
         addActorTestOnly(a)
